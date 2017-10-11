@@ -19,13 +19,11 @@ Network::Network(std::vector<std::shared_ptr<Layer>>& group_l, int input_size, i
   batch_size(b_size),
   epoch_time(epoch)
 {
-  Helper::cuda_array_zero_allocate(&loss_dvt  , sizeof(float) * output_size);
   Helper::cuda_array_zero_allocate(&gpu_input , sizeof(float) * in_size);
 }
 
 Network::~Network()
 {
-  cudaFree(loss_dvt);
   cudaFree(gpu_input);
 }
 
@@ -58,9 +56,11 @@ void Network::Train(const float * input, const float * e_output,  int total_trai
   float * gpu_b_input;
   float * gpu_e_output;
   float * gpu_neural_output;
+  float * loss_dvt;
   Helper::cuda_array_allocate(&gpu_b_input      , sizeof(float) * in_size  * batch_size);
   Helper::cuda_array_allocate(&gpu_e_output     , sizeof(float) * out_size * batch_size);
   Helper::cuda_array_allocate(&gpu_neural_output, sizeof(float) * out_size * batch_size);
+  Helper::cuda_array_allocate(&loss_dvt         , sizeof(float) * output_size);
 
   // Allocate space to store all neural outputs of a single batch on CPU side
   std::unique_ptr<float> cpu_neural_output(new float[out_size * batch_size]);
@@ -122,7 +122,7 @@ void Network::Train(const float * input, const float * e_output,  int total_trai
          *************************/
         float batch_loss = 0.0;
         cudaMemcpy(cpu_neural_output.get(), gpu_neural_output, sizeof(float) * out_size * batch_size, cudaMemcpyDeviceToHost);
-        Loss(cpu_neural_output.get(), b_ex_output_start_addr, &batch_loss, out_size * batch_size);
+        Helper::Cross_Entropy_Loss(cpu_neural_output.get(), b_ex_output_start_addr, &batch_loss, out_size * batch_size);
 
         std::cout << "\tLoss:  + Train: " << batch_loss << std::endl;
 
@@ -157,7 +157,7 @@ void Network::Train(const float * input, const float * e_output,  int total_trai
         //
         // float test_loss = 0.0;
         // cudaMemcpy(cpu_neural_output.get(), gpu_neural_output, sizeof(float) * out_size * batch_size, cudaMemcpyDeviceToHost);
-        // Loss(cpu_neural_output.get(), test_b_ex_output_start_addr, &test_loss, out_size * batch_size);
+        // Helper::Cross_Entropy_Loss(cpu_neural_output.get(), test_b_ex_output_start_addr, &test_loss, out_size * batch_size);
         //
         // std::cout << " - Validate: " << test_loss << std::endl;
 
@@ -171,6 +171,8 @@ void Network::Train(const float * input, const float * e_output,  int total_trai
   // Finish training, free GPU memory
   cudaFree(gpu_b_input);
   cudaFree(gpu_e_output);
+  cudaFree(loss_dvt);
+  cudaFree(gpu_neural_output);
 }
 
 
@@ -187,15 +189,4 @@ float * Network::Forward_Propagate(float * input)
   }
 
   return layer_feed;
-}
-
-void Network::Loss(const float * neural_out, const float * expect_out, float * loss, int n)
-{
-  float sum = 0.0;
-  for(int i = 0; i < n; i++)
-  {
-    sum += -( expect_out[i] * log(neural_out[i]) + (1 - expect_out[i]) * log(1 - neural_out[i]) );
-  }
-
-  *loss = sum / n;
 }

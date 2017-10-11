@@ -24,7 +24,6 @@ public:
               const float * test_input, const float * test_e_output, int total_test_samples);
 
 private:
-  void Loss(const float * neural_out, const float * expect_out, float * loss, int n);
   float * Forward_Propagate(float * input);
 
 private:
@@ -35,7 +34,6 @@ private:
   int       batch_size;
   int       epoch_time;
   float *   gpu_input;
-  float *   loss_dvt;
 };
 
 

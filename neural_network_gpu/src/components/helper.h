@@ -22,6 +22,7 @@ public:
   static void update_param(float * x, float * dx, float ALPHA, int n);
 
   /************* LOSS FUNCTION *************/
+  static void Cross_Entropy_Loss(const float * neural_out, const float * expect_out, float * loss, int n);
   static void Cross_Entropy_Loss_Derivative(const float * neural_out, const float * expect_out, float * loss_dvt, int n);
 };
 

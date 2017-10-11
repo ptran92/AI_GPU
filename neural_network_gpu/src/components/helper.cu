@@ -288,6 +288,17 @@ void Helper::update_param(float * x, float * dx, float ALPHA, int n)
   Update_Param_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(x, dx, ALPHA, n);
 }
 
+void Helper::Cross_Entropy_Loss(const float * neural_out, const float * expect_out, float * loss, int n)
+{
+  float sum = 0.0;
+  for(int i = 0; i < n; i++)
+  {
+    sum += -( expect_out[i] * log(neural_out[i]) + (1 - expect_out[i]) * log(1 - neural_out[i]) );
+  }
+
+  *loss = sum / n;
+}
+
 void Helper::Cross_Entropy_Loss_Derivative(const float * neural_out, const float * expect_out, float * loss_dvt, int n)
 {
   CrossEntropyLoss_Derivative_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(neural_out, expect_out, loss_dvt, n);
