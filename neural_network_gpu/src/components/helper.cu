@@ -157,7 +157,7 @@ __global__ void h_add_vectors(const half* x, half* y, const int n)
  }
 }
 
-__global__ void cvt_float2half_gpu(const float * src, layer_param_t dst, const int n)
+__global__ void cvt_float2half_gpu(const float * src, Layer::layer_param_t dst, const int n)
 {
  int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -167,7 +167,7 @@ __global__ void cvt_float2half_gpu(const float * src, layer_param_t dst, const i
  }
 }
 
-__global__ void cvt_half2float_gpu(const layer_param_t src, float * dst, const int n)
+__global__ void cvt_half2float_gpu(const Layer::layer_param_t src, float * dst, const int n)
 {
  int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -333,12 +333,12 @@ __global__ void h_CrossEntropyLoss_Derivative_Gpu(const half * neural_out, const
  ***************************************/
 void Helper::cvtfloat2half(const float * src, Layer::layer_param_t dst, const int n_elements)
 {
-  cvt_float2half_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>(src, dst, n_elements);
+  cvt_float2half_gpu<<<CUDA_BLOCKS(n_elements), Device::total_threads>>>(src, dst, n_elements);
 }
 
 void Helper::cvthalf2float(const Layer::layer_param_t src, float * dst, const int n_elements)
 {
-  cvt_half2float_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>(src, dst, n_elements);
+  cvt_half2float_gpu<<<CUDA_BLOCKS(n_elements), Device::total_threads>>>(src, dst, n_elements);
 }
 
 /***************************************
@@ -350,12 +350,12 @@ void Helper::cuda_array_random_allocate(void **array, Layer::param_type_e type, 
   {
     cudaMalloc(array, size * sizeof(float));
     // Fill with random number
-    fill_rand_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>(*array, time(NULL), size);
+    fill_rand_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>((float *)*array, time(NULL), size);
   }
   else if( type == Layer::HALF_FLOAT_TYPE )
   {
     cudaMalloc(array, size * sizeof(half));
-    h_fill_rand_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>(*array, time(NULL), size);
+    h_fill_rand_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>((half *)*array, time(NULL), size);
   }
 
 }
@@ -366,12 +366,12 @@ void Helper::cuda_array_zero_allocate(void **array, Layer::param_type_e type, in
   {
     cudaMalloc(array, size * sizeof(float));
     // fill with zero
-    fill_zero_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>(*array, size);
+    fill_zero_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>((float *)*array, size);
   }
   else if( type == Layer::HALF_FLOAT_TYPE )
   {
     cudaMalloc(array, size * sizeof(half));
-    h_fill_zero_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>(*array, size);
+    h_fill_zero_gpu<<<CUDA_BLOCKS(size), Device::total_threads>>>((half *)*array, size);
   }
 
 }
