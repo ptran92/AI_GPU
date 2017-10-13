@@ -395,297 +395,276 @@ void Helper::cuda_array_allocate(void **array, Layer::param_type_e type, int siz
                               const Layer::layer_param_t b, Layer::layer_param_t z,
                               int total_inputs, int total_outputs)
  {
-   if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-   {
-      float alpha = 1.0;
-      float beta  = 0.0;
+ #if USING_HALF_FLOAT
+    half alpha = approx_float_to_half(1.0);
+    half beta  = approx_float_to_half(0.0);
 
-      int m = 1;              // number of rows of matrix op(A) and C
-      int n = total_outputs;  // number of columns of matrix op (B) and C
-      int k = total_inputs;   // number of columns and rows of matrix op(A) and op(B)
+    int m = 1;              // number of rows of matrix op(A) and C
+    int n = total_outputs;  // number of columns of matrix op (B) and C
+    int k = total_inputs;   // number of columns and rows of matrix op(A) and op(B)
 
-      int lda = 1;            // leading dimension of matrix A
-      int ldb = total_inputs; // leading dimension of matrix B
-      int ldc = 1;            // leading dimension of matrix C
+    int lda = 1;            // leading dimension of matrix A
+    int ldb = total_inputs; // leading dimension of matrix B
+    int ldc = 1;            // leading dimension of matrix C
 
-      float *mat_a = (float *)input;  // Matrix A
-      float *mat_b = (float *)w;      // Matrix B
-      float *mat_c = z;               // Matrix C
+    half *mat_a = input;    // Matrix A
+    half *mat_b = w;        // Matrix B
+    half *mat_c = z;        // Matrix C
 
-      cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
-      cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
+    cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
+    cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
 
-      // calculate z = x*W
-      cublasSgemm(Device::Device_Get_Handle(),op_A,op_B,\
-                      m , n , k,\
-                      &alpha,\
-                      mat_a , lda,\
-                      mat_b , ldb,\
-                      &beta ,\
-                      mat_c , ldc);
+    // calculate z = x*W
+    cublasHgemm(Device::Device_Get_Handle(),op_A,op_B,\
+                m , n , k,\
+                &alpha,\
+                mat_a , lda,\
+                mat_b , ldb,\
+                &beta ,\
+                mat_c , ldc);
 
-      // add bias z = bias + z
-      cublasSaxpy(Device::Device_Get_Handle(), n, &alpha, b, 1, z, 1);
-   }
-   else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-   {
-      half alpha = approx_float_to_half(1.0);
-      half beta  = approx_float_to_half(0.0);
+    // add bias z = bias + z
+    h_add_vectors<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(b, z, total_outputs);
 
-      int m = 1;              // number of rows of matrix op(A) and C
-      int n = total_outputs;  // number of columns of matrix op (B) and C
-      int k = total_inputs;   // number of columns and rows of matrix op(A) and op(B)
+ #else
+    float alpha = 1.0;
+    float beta  = 0.0;
 
-      int lda = 1;            // leading dimension of matrix A
-      int ldb = total_inputs; // leading dimension of matrix B
-      int ldc = 1;            // leading dimension of matrix C
+    int m = 1;              // number of rows of matrix op(A) and C
+    int n = total_outputs;  // number of columns of matrix op (B) and C
+    int k = total_inputs;   // number of columns and rows of matrix op(A) and op(B)
 
-      half *mat_a = input;    // Matrix A
-      half *mat_b = w;        // Matrix B
-      half *mat_c = z;        // Matrix C
+    int lda = 1;            // leading dimension of matrix A
+    int ldb = total_inputs; // leading dimension of matrix B
+    int ldc = 1;            // leading dimension of matrix C
 
-      cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
-      cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
+    float *mat_a = (float *)input;  // Matrix A
+    float *mat_b = (float *)w;      // Matrix B
+    float *mat_c = z;               // Matrix C
 
-      // calculate z = x*W
-      cublasHgemm(Device::Device_Get_Handle(),op_A,op_B,\
-                   m , n , k,\
-                   &alpha,\
-                   mat_a , lda,\
-                   mat_b , ldb,\
-                   &beta ,\
-                   mat_c , ldc);
+    cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
+    cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
 
-      // add bias z = bias + z
-      h_add_vectors<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(b, z, total_outputs);
-   }
+    // calculate z = x*W
+    cublasSgemm(Device::Device_Get_Handle(),op_A,op_B,\
+                 m , n , k,\
+                 &alpha,\
+                 mat_a , lda,\
+                 mat_b , ldb,\
+                 &beta ,\
+                 mat_c , ldc);
+
+    // add bias z = bias + z
+    cublasSaxpy(Device::Device_Get_Handle(), n, &alpha, b, 1, z, 1);
+
+ #endif
+
  }
 
  void Helper::sigmoid_calc(const Layer::layer_param_t z, Layer::layer_param_t output, int n)
  {
-   if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-   {
-     Sigmoid_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
-   }
-   else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-   {
-     h_Sigmoid_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
-   }
+ #if USING_HALF_FLOAT
+    h_Sigmoid_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
+ #else
+    Sigmoid_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
+ #endif
+
  }
 
  void Helper::sigmoid_dev_calc(Layer::layer_param_t output, Layer::layer_param_t act_dvt, int n)
  {
-   if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-   {
-     Sigmoid_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(output, act_dvt, n);
-   }
-   else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-   {
-     h_Sigmoid_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(output, act_dvt, n);
-   }
+ #if USING_HALF_FLOAT
+    h_Sigmoid_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(output, act_dvt, n);
+ #else
+    Sigmoid_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(output, act_dvt, n);
+ #endif
+
  }
 
 void Helper::softmax_calc(const Layer::layer_param_t z, Layer::layer_param_t output, int n)
 {
-  if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-  {
-    Softmax_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
-  }
-  else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-  {
-    h_Softmax_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
-  }
+#if USING_HALF_FLOAT
+   h_Softmax_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
+#else
+   Softmax_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
+#endif
 
 }
 
 void Helper::softmax_dev_calc(const Layer::layer_param_t output, Layer::layer_param_t act_dvt, int n)
 {
-  if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-  {
-    Softmax_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(output, act_dvt, n);
-  }
-  else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-  {
-    h_Softmax_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(output, act_dvt, n);
-  }
+#if USING_HALF_FLOAT
+   h_Softmax_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(output, act_dvt, n);
+#else
+   Softmax_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(output, act_dvt, n);
+#endif
 
 }
 
 void Helper::err_dev_calc(Layer::layer_param_t error_signal, Layer::layer_param_t act_dvt,
                             Layer::layer_param_t err_dvt, int n)
 {
-  if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-  {
-    Err_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(error_signal, act_dvt, err_dvt, n);
-  }
-  else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-  {
-    h_Err_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(error_signal, act_dvt, err_dvt, n);
-  }
+#if USING_HALF_FLOAT
+   h_Err_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(error_signal, act_dvt, err_dvt, n);
+#else
+   Err_Dev_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(error_signal, act_dvt, err_dvt, n);
+#endif
 
 }
 
 void Helper::accum_w_grad(Layer::layer_param_t input, Layer::layer_param_t err_dvt,
                             Layer::layer_param_t w_grad, int total_inputs, int total_outputs)
 {
-  if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-  {
-    float alpha = 1.0;
-    float beta  = 1.0;
+#if USING_HALF_FLOAT
+  half alpha = approx_float_to_half(1.0);
+  half beta  = approx_float_to_half(1.0);
 
-    int m = total_inputs;   // number of rows of matrix op(A) and C
-    int n = total_outputs;  // number of columns of matrix op (B) and C
-    int k = 1;              // number of columns and rows of matrix op(A) and op(B)
+  int m = total_inputs;   // number of rows of matrix op(A) and C
+  int n = total_outputs;  // number of columns of matrix op (B) and C
+  int k = 1;              // number of columns and rows of matrix op(A) and op(B)
 
-    int lda = 1; // leading dimension of matrix A
-    int ldb = 1; // leading dimension of matrix B
-    int ldc = m; // leading dimension of matrix C
+  int lda = 1; // leading dimension of matrix A
+  int ldb = 1; // leading dimension of matrix B
+  int ldc = m; // leading dimension of matrix C
 
-    float *mat_a = input;       // Matrix A
-    float *mat_b = err_dvt;     // Matrix B
-    float *mat_c = w_grad;      // Matrix C
+  half *mat_a = input;       // Matrix A
+  half *mat_b = err_dvt;     // Matrix B
+  half *mat_c = w_grad;      // Matrix C
 
-    cublasOperation_t op_A = CUBLAS_OP_T; // op(A) = A'
-    cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
+  cublasOperation_t op_A = CUBLAS_OP_T; // op(A) = A'
+  cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
 
-    // calculate C = alpha * A * B + beta * C
-    // the formula is dW = dW + transpose(input) * err_dvt
-    cublasSgemm(Device::Device_Get_Handle(),op_A,op_B,\
-                    m     , n,  k,\
-                    &alpha,\
-                    mat_a , lda,\
-                    mat_b , ldb,\
-                    &beta ,\
-                    mat_c , ldc);
-  }
-  else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-  {
-     half alpha = approx_float_to_half(1.0);
-     half beta  = approx_float_to_half(1.0);
+  // calculate C = alpha * A * B + beta * C
+  // the formula is dW = dW + transpose(input) * err_dvt
+  cublasHgemm(Device::Device_Get_Handle(),op_A,op_B,\
+                  m     , n,  k,\
+                  &alpha,\
+                  mat_a , lda,\
+                  mat_b , ldb,\
+                  &beta ,\
+                  mat_c , ldc);
 
-     int m = total_inputs;   // number of rows of matrix op(A) and C
-     int n = total_outputs;  // number of columns of matrix op (B) and C
-     int k = 1;              // number of columns and rows of matrix op(A) and op(B)
+#else
+  float alpha = 1.0;
+  float beta  = 1.0;
 
-     int lda = 1; // leading dimension of matrix A
-     int ldb = 1; // leading dimension of matrix B
-     int ldc = m; // leading dimension of matrix C
+  int m = total_inputs;   // number of rows of matrix op(A) and C
+  int n = total_outputs;  // number of columns of matrix op (B) and C
+  int k = 1;              // number of columns and rows of matrix op(A) and op(B)
 
-     half *mat_a = input;       // Matrix A
-     half *mat_b = err_dvt;     // Matrix B
-     half *mat_c = w_grad;      // Matrix C
+  int lda = 1; // leading dimension of matrix A
+  int ldb = 1; // leading dimension of matrix B
+  int ldc = m; // leading dimension of matrix C
 
-     cublasOperation_t op_A = CUBLAS_OP_T; // op(A) = A'
-     cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
+  float *mat_a = input;       // Matrix A
+  float *mat_b = err_dvt;     // Matrix B
+  float *mat_c = w_grad;      // Matrix C
 
-     // calculate C = alpha * A * B + beta * C
-     // the formula is dW = dW + transpose(input) * err_dvt
-     cublasHgemm(Device::Device_Get_Handle(),op_A,op_B,\
-                     m     , n,  k,\
-                     &alpha,\
-                     mat_a , lda,\
-                     mat_b , ldb,\
-                     &beta ,\
-                     mat_c , ldc);
+  cublasOperation_t op_A = CUBLAS_OP_T; // op(A) = A'
+  cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
 
-  }
+  // calculate C = alpha * A * B + beta * C
+  // the formula is dW = dW + transpose(input) * err_dvt
+  cublasSgemm(Device::Device_Get_Handle(),op_A,op_B,\
+                  m     , n,  k,\
+                  &alpha,\
+                  mat_a , lda,\
+                  mat_b , ldb,\
+                  &beta ,\
+                  mat_c , ldc);
+
+#endif
+
 }
 
 void Helper::accum_b_grad(Layer::layer_param_t err_dvt, Layer::layer_param_t b_grad, int n)
 {
-  if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-  {
-    float alpha = 1.0;
-    float * x   = err_dvt;
-    float * y   = b_grad;
+#if USING_HALF_FLOAT
+  half * x = err_dvt;
+  half * y = b_grad;
 
-    cublasSaxpy(Device::Device_Get_Handle(), n, &alpha, x, 1, y, 1);
-  }
-  else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-  {
-    half * x = err_dvt;
-    half * y = b_grad;
+  h_add_vectors<<<CUDA_BLOCKS(n), Device::total_threads>>>(x, y, n);
+#else
+  float alpha = 1.0;
+  float * x   = err_dvt;
+  float * y   = b_grad;
 
-    h_add_vectors<<<CUDA_BLOCKS(n), Device::total_threads>>>(x, y, n);
-  }
+  cublasSaxpy(Device::Device_Get_Handle(), n, &alpha, x, 1, y, 1);
+#endif
+
 }
 
 void Helper::err_signal_calc(const Layer::layer_param_t w, const Layer::layer_param_t err_dvt,
                               Layer::layer_param_t propagate_err, int total_inputs, int total_outputs)
 {
-  if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-  {
-    float alpha = 1.0;
-    float beta  = 0.0;
+#if USING_HALF_FLOAT
+  half alpha = approx_float_to_half(1.0);
+  half beta  = approx_float_to_half(0.0);
 
-    int m = 1;              // number of rows of matrix op(A) and C
-    int n = total_inputs;   // number of columns of matrix op (B) and C
-    int k = total_outputs;  // number of columns and rows of matrix op(A) and op(B)
+  int m = 1;              // number of rows of matrix op(A) and C
+  int n = total_inputs;   // number of columns of matrix op (B) and C
+  int k = total_outputs;  // number of columns and rows of matrix op(A) and op(B)
 
-    int lda = 1;            // leading dimension of matrix A
-    int ldb = total_inputs; // leading dimension of matrix B
-    int ldc = 1;            // leading dimension of matrix C
+  int lda = 1;            // leading dimension of matrix A
+  int ldb = total_inputs; // leading dimension of matrix B
+  int ldc = 1;            // leading dimension of matrix C
 
-    float *mat_a = err_dvt;   // Matrix A
-    float *mat_b = w;         // Matrix B
-    float *mat_c = propagate_err;      // Matrix C
+  half *mat_a = err_dvt;   // Matrix A
+  half *mat_b = w;         // Matrix B
+  half *mat_c = propagate_err;      // Matrix C
 
-    cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
-    cublasOperation_t op_B = CUBLAS_OP_T; // op(B) = B'
+  cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
+  cublasOperation_t op_B = CUBLAS_OP_T; // op(B) = B'
 
-    // calculate C = alpha * A * B + beta * C
-    // the formula is pre_err = err_dvt * transpose(W)
-    cublasSgemm(Device::Device_Get_Handle(),op_A,op_B,\
-                    m     , n,  k,\
-                    &alpha,\
-                    mat_a , lda,\
-                    mat_b , ldb,\
-                    &beta ,\
-                    mat_c , ldc);
-  }
-  else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-  {
-    half alpha = approx_float_to_half(1.0);
-    half beta  = approx_float_to_half(0.0);
+  // calculate C = alpha * A * B + beta * C
+  // the formula is pre_err = err_dvt * transpose(W)
+  cublasHgemm(Device::Device_Get_Handle(),op_A,op_B,\
+                  m     , n,  k,\
+                  &alpha,\
+                  mat_a , lda,\
+                  mat_b , ldb,\
+                  &beta ,\
+                  mat_c , ldc);
 
-    int m = 1;              // number of rows of matrix op(A) and C
-    int n = total_inputs;   // number of columns of matrix op (B) and C
-    int k = total_outputs;  // number of columns and rows of matrix op(A) and op(B)
+#else
+  float alpha = 1.0;
+  float beta  = 0.0;
 
-    int lda = 1;            // leading dimension of matrix A
-    int ldb = total_inputs; // leading dimension of matrix B
-    int ldc = 1;            // leading dimension of matrix C
+  int m = 1;              // number of rows of matrix op(A) and C
+  int n = total_inputs;   // number of columns of matrix op (B) and C
+  int k = total_outputs;  // number of columns and rows of matrix op(A) and op(B)
 
-    half *mat_a = err_dvt;   // Matrix A
-    half *mat_b = w;         // Matrix B
-    half *mat_c = propagate_err;      // Matrix C
+  int lda = 1;            // leading dimension of matrix A
+  int ldb = total_inputs; // leading dimension of matrix B
+  int ldc = 1;            // leading dimension of matrix C
 
-    cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
-    cublasOperation_t op_B = CUBLAS_OP_T; // op(B) = B'
+  float *mat_a = err_dvt;   // Matrix A
+  float *mat_b = w;         // Matrix B
+  float *mat_c = propagate_err;      // Matrix C
 
-    // calculate C = alpha * A * B + beta * C
-    // the formula is pre_err = err_dvt * transpose(W)
-    cublasHgemm(Device::Device_Get_Handle(),op_A,op_B,\
-                    m     , n,  k,\
-                    &alpha,\
-                    mat_a , lda,\
-                    mat_b , ldb,\
-                    &beta ,\
-                    mat_c , ldc);
-  }
+  cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
+  cublasOperation_t op_B = CUBLAS_OP_T; // op(B) = B'
+
+  // calculate C = alpha * A * B + beta * C
+  // the formula is pre_err = err_dvt * transpose(W)
+  cublasSgemm(Device::Device_Get_Handle(),op_A,op_B,\
+                  m     , n,  k,\
+                  &alpha,\
+                  mat_a , lda,\
+                  mat_b , ldb,\
+                  &beta ,\
+                  mat_c , ldc);
+#endif
 
 }
 
 void Helper::update_param(Layer::layer_param_t x, Layer::layer_param_t dx, float ALPHA, int n)
 {
-  if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-  {
-    Update_Param_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(x, dx, ALPHA, n);
-  }
-  else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-  {
-    h_Update_Param_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(x, dx, ALPHA, n);
-  }
+#if USING_HALF_FLOAT
+  h_Update_Param_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(x, dx, ALPHA, n);
+#else
+  Update_Param_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(x, dx, ALPHA, n);
+#endif
 
 }
 
@@ -706,22 +685,10 @@ void Helper::Cross_Entropy_Loss(const float * neural_out, const float * expect_o
 void Helper::Cross_Entropy_Loss_Derivative(const Layer::layer_param_t neural_out, const Layer::layer_param_t expect_out,
                                             Layer::layer_param_t loss_dvt, int n)
 {
-  if( Helper::network_type_get() == Layer::FLOAT_TYPE )
-  {
-    CrossEntropyLoss_Derivative_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(neural_out, expect_out, loss_dvt, n);
-  }
-  else if( Helper::network_type_get() == Layer::HALF_FLOAT_TYPE )
-  {
-    h_CrossEntropyLoss_Derivative_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(neural_out, expect_out, loss_dvt, n);
-  }
-
-}
-
-Layer::param_type_e   Helper::network_type_get(void)
-{
 #if USING_HALF_FLOAT
-  return Layer::HALF_FLOAT_TYPE;
+  h_CrossEntropyLoss_Derivative_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(neural_out, expect_out, loss_dvt, n);
 #else
-  return Layer::FLOAT_TYPE;
+  CrossEntropyLoss_Derivative_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(neural_out, expect_out, loss_dvt, n);
 #endif
+
 }

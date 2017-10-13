@@ -6,7 +6,6 @@
 class Helper
 {
 public:
-  static Layer::param_type_e   network_type_get(void);
   /************* FLOAT - HALF FLOAT CONVERT FUNCTION *************/
   static void cvtfloat2half(const float * src, Layer::layer_param_t dst, const int n_elements);
   static void cvthalf2float(const Layer::layer_param_t src, float * dst, const int n_elements);
