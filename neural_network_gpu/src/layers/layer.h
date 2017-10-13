@@ -1,7 +1,7 @@
 #ifndef __LAYER_H
 #define __LAYER_H
 
-#define USING_HALF_FLOAT        1
+#define USING_HALF_FLOAT        0
 
 #if USING_HALF_FLOAT
 #include "cuda_fp16.h"
@@ -34,7 +34,6 @@ public:
   virtual layer_param_t    forward_propagation(layer_param_t in)     = 0;
   virtual layer_param_t    backward_propagation(layer_param_t error) = 0;
   virtual void       update(float eta, int batch_size)   = 0;
-  virtual void       test(void) = 0;
 
 protected:
   int     total_inputs;
