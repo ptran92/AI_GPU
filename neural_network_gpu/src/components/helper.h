@@ -1,29 +1,43 @@
 #ifndef __HELPER_H
 #define __HELPER_H
 
+#include "../layers/layer.h"
+
 class Helper
 {
 public:
-  static void cuda_array_random_allocate(float **array, int size);
-  static void cuda_array_zero_allocate(float **array, int size);
-  static void cuda_array_allocate(float **array, int size);
+  static Layer::param_type_e   network_type_get(void);
+  /************* FLOAT - HALF FLOAT CONVERT FUNCTION *************/
+  static void cvtfloat2half(const float * src, Layer::layer_param_t dst, const int n_elements);
+  static void cvthalf2float(const Layer::layer_param_t src, float * dst, const int n_elements);
 
-  static void net_calc(const float * input, const float * w, const float * b, float * z, int total_inputs, int total_outputs);
-  static void sigmoid_calc(const float * z, float * output, int n);
-  static void sigmoid_dev_calc(float * output, float * act_dvt, int n);
+  /************* MEMORY ALLOCATION FUNCTION *************/
+  static void cuda_array_random_allocate(void **array, Layer::param_type_e type, int size);
+  static void cuda_array_zero_allocate(void **array, Layer::param_type_e type, int size);
+  static void cuda_array_allocate(void **array, Layer::param_type_e type, int size);
 
-  static void softmax_calc(const float * z, float * output, int n);
-  static void softmax_dev_calc(const float * output, float * act_dvt, int n);
+  /************* LAYER SUB-CALCULATION FUNCTION *************/
+  static void net_calc(const Layer::layer_param_t input, const Layer::layer_param_t w,
+                          const Layer::layer_param_t b, Layer::layer_param_t z,
+                          int total_inputs, int total_outputs);
+  static void sigmoid_calc(const Layer::layer_param_t z, Layer::layer_param_t output, int n);
+  static void sigmoid_dev_calc(Layer::layer_param_t output, Layer::layer_param_t act_dvt, int n);
 
-  static void err_dev_calc(float * error_signal, float * act_dvt, float * err_dvt, int n);
-  static void accum_w_grad(float * input, float * err_dvt, float * w_grad,  int total_inputs, int total_outputs);
-  static void accum_b_grad(float * err_dvt, float * b_grad, int n);
-  static void err_signal_calc(const float *w, const float * err_dvt, float *propagate_err, int total_inputs, int total_outputs);
-  static void update_param(float * x, float * dx, float ALPHA, int n);
+  static void softmax_calc(const Layer::layer_param_t z, Layer::layer_param_t output, int n);
+  static void softmax_dev_calc(const Layer::layer_param_t output, Layer::layer_param_t act_dvt, int n);
+
+  static void err_dev_calc(Layer::layer_param_t error_signal, Layer::layer_param_t act_dvt, Layer::layer_param_t err_dvt, int n);
+  static void accum_w_grad(Layer::layer_param_t input, Layer::layer_param_t err_dvt,
+                            Layer::layer_param_t w_grad,  int total_inputs, int total_outputs);
+  static void accum_b_grad(Layer::layer_param_t err_dvt, Layer::layer_param_t b_grad, int n);
+  static void err_signal_calc(const Layer::layer_param_t w, const Layer::layer_param_t err_dvt,
+                                Layer::layer_param_t propagate_err, int total_inputs, int total_outputs);
+  static void update_param(Layer::layer_param_t x, Layer::layer_param_t dx, float ALPHA, int n);
 
   /************* LOSS FUNCTION *************/
   static void Cross_Entropy_Loss(const float * neural_out, const float * expect_out, float * loss, int n);
-  static void Cross_Entropy_Loss_Derivative(const float * neural_out, const float * expect_out, float * loss_dvt, int n);
+  static void Cross_Entropy_Loss_Derivative(const Layer::layer_param_t neural_out, const Layer::layer_param_t expect_out,
+                                              Layer::layer_param_t loss_dvt, int n);
 };
 
 

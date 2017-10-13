@@ -7,11 +7,10 @@ class Softmax_Layer : public Layer
 {
 public:
   Softmax_Layer(int n_inputs, int n_outputs);
-  virtual ~Softmax_Layer();
-  float *    forward_propagation(float * in);
-  float *    backward_propagation(float * error);
-  void       update(float eta, int batch_size);
-  void       test();
+  virtual          ~Softmax_Layer();
+  layer_param_t    forward_propagation(layer_param_t in);
+  layer_param_t    backward_propagation(layer_param_t error);
+  void             update(float eta, int batch_size);
 
 };
 

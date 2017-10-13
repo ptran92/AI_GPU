@@ -24,7 +24,7 @@ public:
               const float * test_input, const float * test_e_output, int total_test_samples);
 
 private:
-  float * Forward_Propagate(float * input);
+  Layer::layer_param_t Forward_Propagate(Layer::layer_param_t input);
 
 private:
   std::vector<std::shared_ptr<Layer>> layers;
@@ -34,6 +34,8 @@ private:
   int       batch_size;
   int       epoch_time;
   float *   gpu_input;
+  float *   gpu_output;
+  Layer::layer_param_t  gpu_h_input;
 };
 
 
