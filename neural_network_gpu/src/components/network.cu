@@ -19,11 +19,11 @@ Network::Network(std::vector<std::shared_ptr<Layer>>& group_l, int input_size, i
   batch_size(b_size),
   epoch_time(epoch)
 {
-  Helper::cuda_array_zero_allocate(&gpu_input   , Layer::FLOAT_TYPE     , in_size);
+  Helper::cuda_array_zero_allocate( (void **)&gpu_input   , Layer::FLOAT_TYPE     , in_size);
 
 #if USING_HALF_FLOAT
-  Helper::cuda_array_zero_allocate(&gpu_h_input , Layer::HALF_FLOAT_TYPE, in_size);
-  Helper::cuda_array_zero_allocate(&gpu_output  , Layer::FLOAT_TYPE     , out_size);
+  Helper::cuda_array_zero_allocate( (void **)&gpu_h_input , Layer::HALF_FLOAT_TYPE, in_size);
+  Helper::cuda_array_zero_allocate( (void **)&gpu_output  , Layer::FLOAT_TYPE     , out_size);
 #endif /* USING_HALF_FLOAT */
 }
 
@@ -89,19 +89,19 @@ void Network::Train(const float * input, const float * e_output,  int total_trai
   Layer::layer_param_t hf_b_e_output_gpu;
   float *       f_b_n_output_gpu;
   Layer::layer_param_t hf_b_n_output_gpu;
-  Helper::cuda_array_allocate(&f_b_input_gpu      , Layer::FLOAT_TYPE       , in_size  * batch_size);
-  Helper::cuda_array_allocate(&hf_b_input_gpu     , Layer::HALF_FLOAT_TYPE  , in_size  * batch_size);
-  Helper::cuda_array_allocate(&f_b_e_output_gpu   , Layer::FLOAT_TYPE       , out_size * batch_size);
-  Helper::cuda_array_allocate(&hf_b_e_output_gpu  , Layer::HALF_FLOAT_TYPE  , out_size * batch_size);
-  Helper::cuda_array_allocate(&f_b_n_output_gpu   , Layer::FLOAT_TYPE       , out_size * batch_size);
-  Helper::cuda_array_allocate(&hf_b_n_output_gpu  , Layer::HALF_FLOAT_TYPE  , out_size * batch_size);
+  Helper::cuda_array_allocate( (void **)&f_b_input_gpu      , Layer::FLOAT_TYPE       , in_size  * batch_size);
+  Helper::cuda_array_allocate( (void **)&hf_b_input_gpu     , Layer::HALF_FLOAT_TYPE  , in_size  * batch_size);
+  Helper::cuda_array_allocate( (void **)&f_b_e_output_gpu   , Layer::FLOAT_TYPE       , out_size * batch_size);
+  Helper::cuda_array_allocate( (void **)&hf_b_e_output_gpu  , Layer::HALF_FLOAT_TYPE  , out_size * batch_size);
+  Helper::cuda_array_allocate( (void **)&f_b_n_output_gpu   , Layer::FLOAT_TYPE       , out_size * batch_size);
+  Helper::cuda_array_allocate( (void **)&hf_b_n_output_gpu  , Layer::HALF_FLOAT_TYPE  , out_size * batch_size);
 
   // Allocate space to store all neural outputs of a single batch on CPU side
   std::unique_ptr<float> cpu_neural_output(new float[out_size * batch_size]);
 
   // Allocate additional memory for loss derivative
   Layer::layer_param_t loss_dvt;
-  Helper::cuda_array_allocate(&loss_dvt           , Layer::HALF_FLOAT_TYPE  , out_size);
+  Helper::cuda_array_allocate( (void **)&loss_dvt           , Layer::HALF_FLOAT_TYPE  , out_size);
 
   // For each epoch time, do back propagation on training set
   int total_batches = total_train_samples / batch_size;
@@ -183,10 +183,10 @@ void Network::Train(const float * input, const float * e_output,  int total_trai
   Layer::layer_param_t gpu_e_output;
   Layer::layer_param_t gpu_neural_output;
   Layer::layer_param_t loss_dvt;
-  Helper::cuda_array_allocate(&gpu_b_input      , Layer::FLOAT_TYPE, in_size  * batch_size);
-  Helper::cuda_array_allocate(&gpu_e_output     , Layer::FLOAT_TYPE, out_size * batch_size);
-  Helper::cuda_array_allocate(&gpu_neural_output, Layer::FLOAT_TYPE, out_size * batch_size);
-  Helper::cuda_array_allocate(&loss_dvt         , Layer::FLOAT_TYPE, out_size);
+  Helper::cuda_array_allocate( (void **)&gpu_b_input      , Layer::FLOAT_TYPE, in_size  * batch_size);
+  Helper::cuda_array_allocate( (void **)&gpu_e_output     , Layer::FLOAT_TYPE, out_size * batch_size);
+  Helper::cuda_array_allocate( (void **)&gpu_neural_output, Layer::FLOAT_TYPE, out_size * batch_size);
+  Helper::cuda_array_allocate( (void **)&loss_dvt         , Layer::FLOAT_TYPE, out_size);
 
   // Allocate space to store all neural outputs of a single batch on CPU side
   std::unique_ptr<float> cpu_neural_output(new float[out_size * batch_size]);

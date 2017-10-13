@@ -17,16 +17,16 @@ Softmax_Layer::Softmax_Layer(int n_inputs, int n_outputs)
 {
   total_inputs  = n_inputs;
   total_outputs = n_outputs;
-  Helper::cuda_array_random_allocate( &w, Layer::HALF_FLOAT_TYPE, n_inputs * n_outputs );
-  Helper::cuda_array_random_allocate( &b, Layer::HALF_FLOAT_TYPE, n_outputs );
+  Helper::cuda_array_random_allocate( (void **)&w, Layer::HALF_FLOAT_TYPE, n_inputs * n_outputs );
+  Helper::cuda_array_random_allocate( (void **)&b, Layer::HALF_FLOAT_TYPE, n_outputs );
 
-  Helper::cuda_array_zero_allocate( &z        , Layer::HALF_FLOAT_TYPE, n_outputs );
-  Helper::cuda_array_zero_allocate( &w_grad   , Layer::HALF_FLOAT_TYPE, n_inputs * n_outputs );
-  Helper::cuda_array_zero_allocate( &b_grad   , Layer::HALF_FLOAT_TYPE, n_outputs );
-  Helper::cuda_array_zero_allocate( &output   , Layer::HALF_FLOAT_TYPE, n_outputs );
-  Helper::cuda_array_zero_allocate( &err      , Layer::HALF_FLOAT_TYPE, n_inputs );
-  Helper::cuda_array_zero_allocate( &act_dvt  , Layer::HALF_FLOAT_TYPE, n_outputs );
-  Helper::cuda_array_zero_allocate( &err_dvt  , Layer::HALF_FLOAT_TYPE, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&z        , Layer::HALF_FLOAT_TYPE, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&w_grad   , Layer::HALF_FLOAT_TYPE, n_inputs * n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&b_grad   , Layer::HALF_FLOAT_TYPE, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&output   , Layer::HALF_FLOAT_TYPE, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&err      , Layer::HALF_FLOAT_TYPE, n_inputs );
+  Helper::cuda_array_zero_allocate( (void **)&act_dvt  , Layer::HALF_FLOAT_TYPE, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&err_dvt  , Layer::HALF_FLOAT_TYPE, n_outputs );
 
 }
 
@@ -43,7 +43,7 @@ Softmax_Layer::~Softmax_Layer()
   cudaFree(err_dvt);
 }
 
-layer_param_t Softmax_Layer::forward_propagation(layer_param_t in)
+Layer::layer_param_t Softmax_Layer::forward_propagation(Layer::layer_param_t in)
 {
   // Save the input
   input = in;
@@ -60,7 +60,7 @@ layer_param_t Softmax_Layer::forward_propagation(layer_param_t in)
   return output;
 }
 
-layer_param_t Softmax_Layer::backward_propagation(layer_param_t error)
+Layer::layer_param_t Softmax_Layer::backward_propagation(Layer::layer_param_t error)
 {
   // Calculate derivative of neuron output
   // dO/dnet = softmax'(z)
