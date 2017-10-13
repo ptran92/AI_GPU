@@ -145,18 +145,6 @@ __global__ void fill_zero_gpu(float * array, int n)
  *
  *
  **************************************************************/
-__global__ void h_add_vectors(const half* x, half* y, const int n)
-{
- int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
- if(tid  < n)
- {
-   half alpha = __float2half(1.0);
-   // y = alpha * x + y
-   y[tid] = __hfma(alpha, x[tid], y[tid]);
- }
-}
-
 __global__ void cvt_float2half_gpu(const float * src, Layer::layer_param_t dst, const int n)
 {
  int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -199,6 +187,20 @@ __global__ void h_fill_rand_gpu(half * array, int seed, int n)
    // create random number in range [-0.5 , 0.5] with uniform distribution
    array[tid] = __float2half( curand_uniform(&state) - 0.5 );
  }
+}
+
+#if USING_HALF_FLOAT
+
+__global__ void h_add_vectors(const half* x, half* y, const int n)
+{
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(tid  < n)
+  {
+    half alpha = __float2half(1.0);
+    // y = alpha * x + y
+    y[tid] = __hfma(alpha, x[tid], y[tid]);
+  }
 }
 
 __global__ void h_Softmax_Dev_Gpu(const half * output, half * act_dvt, const int n)
@@ -324,6 +326,8 @@ __global__ void h_CrossEntropyLoss_Derivative_Gpu(const half * neural_out, const
 
   }
 }
+
+#endif
 
 /*************************************************************
  *    PUBLIC FUNCTIONS
