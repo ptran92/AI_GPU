@@ -145,7 +145,7 @@ __global__ void fill_zero_gpu(float * array, int n)
  *
  *
  **************************************************************/
-__global__ void cvt_float2half_gpu(const float * src, Layer::layer_param_t dst, const int n)
+__global__ void cvt_float2half_gpu(const float * src, half * dst, const int n)
 {
  int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -155,7 +155,7 @@ __global__ void cvt_float2half_gpu(const float * src, Layer::layer_param_t dst, 
  }
 }
 
-__global__ void cvt_half2float_gpu(const Layer::layer_param_t src, float * dst, const int n)
+__global__ void cvt_half2float_gpu(const half * src, float * dst, const int n)
 {
  int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -337,12 +337,16 @@ __global__ void h_CrossEntropyLoss_Derivative_Gpu(const half * neural_out, const
  ***************************************/
 void Helper::cvtfloat2half(const float * src, Layer::layer_param_t dst, const int n_elements)
 {
+#if USING_HALF_FLOAT
   cvt_float2half_gpu<<<CUDA_BLOCKS(n_elements), Device::total_threads>>>(src, dst, n_elements);
+#endif
 }
 
 void Helper::cvthalf2float(const Layer::layer_param_t src, float * dst, const int n_elements)
 {
+#if USING_HALF_FLOAT
   cvt_half2float_gpu<<<CUDA_BLOCKS(n_elements), Device::total_threads>>>(src, dst, n_elements);
+#endif
 }
 
 /***************************************
