@@ -25,15 +25,15 @@ FC_Layer::FC_Layer(int n_inputs, int n_outputs)
 #endif
 
   Helper::cuda_array_random_allocate( (void **)&w    , type, n_inputs * n_outputs );
-  Helper::cuda_array_random_allocate( (void **)&b    , Layer::HALF_FLOAT_TYPE, n_outputs );
+  Helper::cuda_array_random_allocate( (void **)&b    , type, n_outputs );
 
-  Helper::cuda_array_zero_allocate( (void **)&z      , Layer::HALF_FLOAT_TYPE, n_outputs );
-  Helper::cuda_array_zero_allocate( (void **)&w_grad , Layer::HALF_FLOAT_TYPE, n_inputs * n_outputs );
-  Helper::cuda_array_zero_allocate( (void **)&b_grad , Layer::HALF_FLOAT_TYPE, n_outputs );
-  Helper::cuda_array_zero_allocate( (void **)&output , Layer::HALF_FLOAT_TYPE, n_outputs );
-  Helper::cuda_array_zero_allocate( (void **)&err    , Layer::HALF_FLOAT_TYPE, n_inputs );
-  Helper::cuda_array_zero_allocate( (void **)&act_dvt, Layer::HALF_FLOAT_TYPE, n_outputs );
-  Helper::cuda_array_zero_allocate( (void **)&err_dvt, Layer::HALF_FLOAT_TYPE, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&z      , type, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&w_grad , type, n_inputs * n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&b_grad , type, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&output , type, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&err    , type, n_inputs );
+  Helper::cuda_array_zero_allocate( (void **)&act_dvt, type, n_outputs );
+  Helper::cuda_array_zero_allocate( (void **)&err_dvt, type, n_outputs );
 }
 
 
