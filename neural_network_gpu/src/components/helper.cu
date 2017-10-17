@@ -302,12 +302,12 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
  if(tid < n)
  {
    // output[tid] = 1.0 / (1.0 + exp(-z[tid]));
-   half exponent = hexp(z[tid]);
-   half num      = __float2half(1.0);
-   half divisor  = __hfma(num, exponent, num);
-
-   output[tid]   = hdiv(exponent, divisor);
-
+   half one       = __float2half(1.0);
+   half minus_one = __float2half(-1.0);
+   half zero      = __float2half(0.0);
+   half temp      = __hfma(minus_one, z[tid], zero);
+   half divisor   = __hfma(one, hexp(temp), one);
+   output[tid]    = hdiv(one, divisor);
  }
 }
 
