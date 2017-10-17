@@ -19,7 +19,7 @@ Softmax_Layer::Softmax_Layer(int n_inputs, int n_outputs)
   total_outputs = n_outputs;
 
 #if USING_HALF_FLOAT
-  Layer::param_type_e type = Layer::HALF_FLOAT_TYPE
+  Layer::param_type_e type = Layer::HALF_FLOAT_TYPE;
 #else
   Layer::param_type_e type = Layer::FLOAT_TYPE;
 #endif
