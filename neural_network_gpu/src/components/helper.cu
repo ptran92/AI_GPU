@@ -246,7 +246,7 @@ __global__ void h_Softmax_Gpu(const half * z, half * output, const int n)
  if(tid < n)
  {
    // output[tid] /= sum;
-   output[tid] = __hdiv(output[tid], sum);
+   output[tid] = hdiv(output[tid], sum);
  }
 }
 
@@ -306,7 +306,7 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
    half num      = __float2half(1.0);
    half divisor  = __hfma(num, exponent, num);
 
-   output[tid]   = __hdiv(exponent, divisor);
+   output[tid]   = hdiv(exponent, divisor);
 
  }
 }
@@ -320,8 +320,8 @@ __global__ void h_CrossEntropyLoss_Derivative_Gpu(const half * neural_out, const
    //  loss_dvt[tid] = -expect_out[tid] / neural_out[tid] + (1 - expect_out[tid]) / (1 - neural_out[tid]);
    half minus_one = __float2half(-1.0);
    half one       = __float2half(1.0);
-   half x         = __hdiv(expect_out[tid], neural_out[tid]);
-   half y         = __hdiv( __hfma(minus_one, expect_out[tid], one), __hfma(minus_one, neural_out[tid], one) );
+   half x         = hdiv(expect_out[tid], neural_out[tid]);
+   half y         = hdiv( __hfma(minus_one, expect_out[tid], one), __hfma(minus_one, neural_out[tid], one) );
    loss_dvt[tid]  = __hfma(minus_one, x, y);
 
   }
