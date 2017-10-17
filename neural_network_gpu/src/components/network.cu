@@ -176,6 +176,7 @@ void Network::Train(const float * input, const float * e_output,  int total_trai
   cudaFree(hf_b_e_output_gpu);
   cudaFree(f_b_n_output_gpu);
   cudaFree(hf_b_n_output_gpu);
+  cudaFree(loss_dvt);
 
 #else
   // First, allocate memory in gpu to store a batch
