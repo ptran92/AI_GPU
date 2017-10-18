@@ -51,7 +51,6 @@ __global__ void Sigmoid_Dev_Gpu(const float * output, float * act_dvt, const int
     act_dvt[tid] = output[tid] * (1 - output[tid]);
   }
 }
-
 __global__ void Err_Dev_Gpu(const float * error_signal, const float * act_dvt, float * err_dvt, const int n)
 {
   int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -222,12 +221,27 @@ __global__ void h_Softmax_Dev_Gpu(const half * output, half * act_dvt, const int
 __global__ void h_Softmax_Gpu(const half * z, half * output, const int n)
 {
  half sum = __float2half(0.0);
- int   tid = blockIdx.x * blockDim.x + threadIdx.x;
+ int  tid = blockIdx.x * blockDim.x + threadIdx.x;
+ half max = z[0];
+
+ /* find the max in input buffer */
+ if(tid < n)
+ {
+   for(int i = 1; i < n; i++)
+   {
+     if( __hgt(z[i], max) )
+     {
+       max = z[i];
+     }
+   }
+ }
+
+ __syncthreads();
 
  if(tid < n)
  {
-   // output[tid] = exp(z[tid]);
-   output[tid] = hexp(z[tid]);
+   // output[tid] = exp( z[tid] - max );
+   output[tid] = hexp( __hsub(z[tid], max) );
  }
 
  __syncthreads();
@@ -301,13 +315,42 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
 
  if(tid < n)
  {
-   // output[tid] = 1.0 / (1.0 + exp(-z[tid]));
+   /*
+     output[tid] = 1.0 / (1.0 + exp(-z[tid]));
+
+     NOTE: for 16-bit floating point number, to solve the overflow and underflow problem
+     in sigmoid function, a solution is proposed:
+     + If z > 0:
+        sigmoid(z) = 1 / (1 + e^-z)
+     + If z <= 0:
+        sigmoid(z) = e^z / (1 + e^z)
+   */
    half one       = __float2half(1.0);
    half minus_one = __float2half(-1.0);
    half zero      = __float2half(0.0);
-   half temp      = __hfma(minus_one, z[tid], zero);
-   half divisor   = __hfma(one, hexp(temp), one);
-   output[tid]    = hdiv(one, divisor);
+
+   if( __hgt(z[tid], zero) )
+   {
+     /*
+       if z is greater than 0
+       use the formula sigmoid(x) = 1 / (1 + e^-x)
+     */
+     half temp      = __hfma(minus_one, z[tid], zero);
+     half divisor   = __hfma(one, hexp(temp), one);
+     output[tid]    = hdiv(one, divisor);
+
+   }
+   else
+   {
+     /*
+       if z is equal or less than 0
+       use the formula sigmoid(x) = e^x / (1 + e^x)
+     */
+     half exponent  = hexp(z[tid]);
+     half divisor   = __hfma(one, exponent, one);
+     output[tid]    = hdiv(eponent, divisor);
+   }
+
  }
 }
 
