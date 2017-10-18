@@ -1,6 +1,7 @@
 #ifndef __HELPER_H
 #define __HELPER_H
 
+#include <iostream>
 #include "../layers/layer.h"
 
 class Helper
@@ -37,6 +38,9 @@ public:
   static void Cross_Entropy_Loss(const float * neural_out, const float * expect_out, float * loss, int n);
   static void Cross_Entropy_Loss_Derivative(const Layer::layer_param_t neural_out, const Layer::layer_param_t expect_out,
                                               Layer::layer_param_t loss_dvt, int n);
+
+  /************* DEBUG FUNCTION *************/
+  static void Print_Array(const std::string buffer_name, const Layer::layer_param_t buffer, const int size);
 };
 
 

@@ -5,6 +5,7 @@
 *************************************************************/
 #include <ctime>
 #include <random>
+#include <memory>
 #include "helper.h"
 #include "cublas_v2.h"
 #include "curand.h"
@@ -348,7 +349,7 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
      */
      half exponent  = hexp(z[tid]);
      half divisor   = __hfma(one, exponent, one);
-     output[tid]    = hdiv(eponent, divisor);
+     output[tid]    = hdiv(exponent, divisor);
    }
 
  }
@@ -742,4 +743,31 @@ void Helper::Cross_Entropy_Loss_Derivative(const Layer::layer_param_t neural_out
   CrossEntropyLoss_Derivative_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(neural_out, expect_out, loss_dvt, n);
 #endif
 
+}
+/***************************************
+ *  DEBUG FUNCTION
+ ***************************************/
+void Helper::Print_Array(const std::string buffer_name, const Layer::layer_param_t buffer, const int size)
+{
+  /* Only print maximum 10 members or less */
+  int no_elements_to_print = (size > 10)? 10 : size;
+
+  /* Allocate temporary memory */
+  std::unique_ptr<float []> cpu_buffer(new float[no_elements_to_print]);
+  float *gpu_buffer;
+  cudaMalloc(&gpu_buffer, no_elements_to_print * sizeof(float));
+
+  /* Convert to single precision floating point buffer */
+  Helper::cvthalf2float(buffer, gpu_buffer, no_elements_to_print);
+
+  /* Copy to cpu memory */
+  cudaMemcpy(cpu_buffer.get(), gpu_buffer, no_elements_to_print * sizeof(float), cudaMemcpyDeviceToHost);
+
+  /* Print out the buffer */
+  std::cout << buffer_name << ":" << std::endl;
+  for(int i = 0; i < no_elements_to_print; i++)
+  {
+    std::cout << cpu_buffer[i] << " ";
+  }
+  std::cout << std::endl;
 }
