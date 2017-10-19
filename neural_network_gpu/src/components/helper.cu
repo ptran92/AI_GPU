@@ -14,6 +14,12 @@
 #include "device.h"
 #include "fp16_conversion.h"
 /*************************************************************
+ *    CONSTANTS
+ *************************************************************/
+#define MAX_HALF_FLOAT		(65500.0)
+#define MIN_HALF_FLOAT		(-65500.0)
+
+/*************************************************************
  *    KERNEL FUNCTIONS
  *************************************************************/
 /**************************************************************
@@ -184,8 +190,7 @@ __global__ void h_fill_rand_gpu(half * array, int seed, int n)
    curandState_t state;
    curand_init(seed, tid, 0, &state);
 
-   // create random number in range [-0.5 , 0.5] with uniform distribution
-   array[tid] = __float2half( curand_uniform(&state) - 0.5 );
+   array[tid] = __float2half( curand_normal(&state)*0.1 ); // create normal distributed random numbers, mean 0, standard deviation 0.1
  }
 }
 
@@ -262,6 +267,22 @@ __global__ void h_Softmax_Gpu(const half * z, half * output, const int n)
  {
    // output[tid] /= sum;
    output[tid] = hdiv(output[tid], sum);
+
+   // trick! add or substract an epsilon to prevent output to zero or one
+   half zero = __float2half(0.0);
+   half one  = __float2half(1.0);
+   half esp  = __float2half(0.001);
+   if( __heq(output[tid], zero) )
+   {
+     // if equal to zero, add an epsilon
+     output[tid] = __hadd(output[tid], esp);
+   }
+   else if( __heq(output[tid], one)  )
+   {
+     // if equal to one, substract an epsilon 
+     output[tid] = __hsub(output[tid], esp);
+   }
+
  }
 }
 
@@ -364,9 +385,25 @@ __global__ void h_CrossEntropyLoss_Derivative_Gpu(const half * neural_out, const
    //  loss_dvt[tid] = -expect_out[tid] / neural_out[tid] + (1 - expect_out[tid]) / (1 - neural_out[tid]);
    half minus_one = __float2half(-1.0);
    half one       = __float2half(1.0);
-   half x         = hdiv(expect_out[tid], neural_out[tid]);
-   half y         = hdiv( __hfma(minus_one, expect_out[tid], one), __hfma(minus_one, neural_out[tid], one) );
-   loss_dvt[tid]  = __hfma(minus_one, x, y);
+   half y         = neural_out[tid];
+
+   half a         = hdiv(expect_out[tid], y);
+   half b         = hdiv( __hfma(minus_one, expect_out[tid], one), __hfma(minus_one, y, one) );
+   
+   loss_dvt[tid]  = __hfma(minus_one, a, b);
+
+   /* if result is inf, replace it with maximum value of float 16 */
+   int is_inf     = __hisinf(loss_dvt[tid]);
+   if( is_inf == -1 )
+   {
+    // if negative infinity
+    loss_dvt[tid] = __float2half( MIN_HALF_FLOAT );
+   }
+   else if ( is_inf == 1 )
+   {
+     // if positive infinity
+    loss_dvt[tid] = __float2half( MAX_HALF_FLOAT );
+   }
 
   }
 }
@@ -517,7 +554,7 @@ void Helper::cuda_array_allocate(void **array, Layer::param_type_e type, int siz
  {
  #if USING_HALF_FLOAT
     h_Sigmoid_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
- #else
+#else
     Sigmoid_Gpu<<<CUDA_BLOCKS(n), Device::total_threads>>>(z, output, n);
  #endif
 
@@ -749,6 +786,7 @@ void Helper::Cross_Entropy_Loss_Derivative(const Layer::layer_param_t neural_out
  ***************************************/
 void Helper::Print_Array(const std::string buffer_name, const Layer::layer_param_t buffer, const int size)
 {
+#if 0
   /* Only print maximum 10 members or less */
   int no_elements_to_print = (size > 10)? 10 : size;
 
@@ -770,4 +808,7 @@ void Helper::Print_Array(const std::string buffer_name, const Layer::layer_param
     std::cout << cpu_buffer[i] << " ";
   }
   std::cout << std::endl;
+
+  cudaFree(gpu_buffer);
+#endif
 }
