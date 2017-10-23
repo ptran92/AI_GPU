@@ -118,12 +118,12 @@
          /* Convert to GPU memory */
          float * f_gpu_w;
          float * f_gpu_b;
-         layer_param_t l_w = l->GetWeight();
-         layer_param_t l_b = l->GetBias();
+         Layer::layer_param_t l_w = l->GetWeight();
+         Layer::layer_param_t l_b = l->GetBias();
 
          /* Allocate temporary float array, in order to convert to half float later */
-         Helper::cuda_array_allocate(&f_gpu_w, Layer::FLOAT_TYPE, no_weight_elements);
-         helper::cuda_array_allocate(&f_gpu_b, Layer::FLOAT_TYPE, no_bias_elements);
+         Helper::cuda_array_allocate((void **)&f_gpu_w, Layer::FLOAT_TYPE, no_weight_elements);
+         Helper::cuda_array_allocate((void **)&f_gpu_b, Layer::FLOAT_TYPE, no_bias_elements);
 
          /* Read weight from file */
          idx        = 0;
