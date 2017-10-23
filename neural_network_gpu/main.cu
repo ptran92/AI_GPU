@@ -55,6 +55,7 @@ void Validate_Model(Network& net, Mnist_Parser& test_set)
   float *image         = test_set.image.get();
   float *res           = test_set.label.get();
   float accuracy       = 0.0;
+  float average_run_time = 0.0;
 
   std::cout << "/**************** TEST RESULT ****************/" << std::endl;
 
@@ -65,7 +66,13 @@ void Validate_Model(Network& net, Mnist_Parser& test_set)
     float *neural_output  = single_neural_output.get();
 
     // Feed the network with test data
+    std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
     net.Predict(input, neural_output);
+    std::chrono::system_clock::time_point end   = std::chrono::system_clock::now();
+
+    /* Save away this elapsed duration */
+    std::chrono::microseconds elapsed_microsecs = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    average_run_time += (float)elapsed_microsecs.count();
 
     // Calculate error percentage
     int     predict_num      = 0;
@@ -95,7 +102,11 @@ void Validate_Model(Network& net, Mnist_Parser& test_set)
     }
   }
 
+  /* Calculate average run time of prediction method */
+  average_run_time /= total_test_images;
+
   std::cout << "Average accuracy: " << (accuracy * 100.0 / total_test_images) << std::endl;
+  std::cout << "Average run time: " << (average_run_time/1000) << " miliseconds" << std::endl;
 
 }
 
