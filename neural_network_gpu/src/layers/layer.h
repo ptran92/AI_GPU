@@ -33,7 +33,23 @@ public:
 public:
   virtual layer_param_t    forward_propagation(layer_param_t in)     = 0;
   virtual layer_param_t    backward_propagation(layer_param_t error) = 0;
-  virtual void       update(float eta, int batch_size)   = 0;
+  virtual void             update(float eta, int batch_size)   = 0;
+  virtual layer_param_t    GetWeight(void)
+  {
+    return w;
+  }
+  virtual layer_param_t    GetBias(void)
+  {
+    return b;
+  }
+  int GetInputSize(void)
+  {
+    return total_inputs;
+  }
+  int GetOutputSize(void)
+  {
+    return total_outputs;
+  }
 
 protected:
   int     total_inputs;

@@ -13,13 +13,24 @@
 #include "src/layers/fc_layer.h"
 #include "src/layers/softmax_layer.h"
 #include "src/components/mnist_data.h"
+#include "src/components/network_param_file_writer.h"
 /*************************************************************
  *    MACROS & DEFINITIONS
  *************************************************************/
+#define TRAIN_MODE      1
+#define INFERENCE_MODE  0
+
+/*************************************************************
+ *    CONSTANTS
+ *************************************************************/
+/* Data path */
 #define TRAINING_DATA_PATH        "data/train-images.idx3-ubyte"
 #define TRAINING_LABEL_PATH       "data/train-labels.idx1-ubyte"
 #define VALIDATE_DATA_PATH        "data/t10k-images.idx3-ubyte"
 #define VALIDATE_LABEL_PATH       "data/t10k-labels.idx1-ubyte"
+
+/* Model path */
+#define MODEL_PATH_FILE           "model/trained_model.txt"
 
 /* network parameter */
 #define BATCH_SIZE                        20
@@ -119,6 +130,8 @@ int main(int argc, char const *argv[])
    *****************************************************/
   Network net(group_layers, input_size, output_size, LEARNING_RATE, BATCH_SIZE, EPOCH_TIME);
 
+
+  #if TRAIN_MODE
   /*****************************************************
    *  Train
    *****************************************************/
@@ -128,6 +141,20 @@ int main(int argc, char const *argv[])
 
   std::chrono::milliseconds elapsed_millisecs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
+  /* Save to file */
+  NetworkFileWriter writer;
+  std::string save_path = MODEL_PATH_FILE;
+  writer.SaveModelToFile(const std::string& path_to_save, group_layers);
+  #endif /* TRAIN_MODE */
+
+  #if INFERENCE
+  /*****************************************************
+   *  Load model from file
+   *****************************************************/
+  NetworkFileWriter writer;
+  std::string load_path = MODEL_PATH_FILE;
+  writer.UpdateModelFromFile(load_path, group_layers);
+  #endif
   /*****************************************************
    *  Validate
    *****************************************************/
@@ -135,8 +162,6 @@ int main(int argc, char const *argv[])
 
   // Print the elapsed time
   std::cout << "Time elapsed: " << (double)(elapsed_millisecs.count())/1000/60 << " minutes" << std::endl;
-
-
   /*****************************************************
    *  End of application
    *****************************************************/

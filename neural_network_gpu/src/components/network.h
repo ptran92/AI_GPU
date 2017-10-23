@@ -27,7 +27,7 @@ private:
   Layer::layer_param_t Forward_Propagate(Layer::layer_param_t input);
 
 private:
-  std::vector<std::shared_ptr<Layer>> layers;
+  std::vector<std::shared_ptr<Layer>>& layers;
   int       in_size;
   int       out_size;
   float     eta;
