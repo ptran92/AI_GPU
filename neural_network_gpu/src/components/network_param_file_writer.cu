@@ -20,13 +20,13 @@
 /*************************************************************
  *    PUBLIC FUNCTIONS
  *************************************************************/
- void NetworkFileWriter::UpdateModelFromFile(std::string path_to_file, std::vector<std::shared_ptr<Layer>>& layer_group)
+ void NetworkFileWriter::UpdateModelFromFile(const std::string& path_to_file, std::vector<std::shared_ptr<Layer>>& layer_group)
  {
    std::fstream ifs(path_to_file.c_str(), std::ios::in | std::ios::binary);
 
    if( !ifs.is_open() )
    {
-     std::error << "Cannot open model file: " << path_to_file << std::endl;
+     std::cerr << "Cannot open model file: " << path_to_file << std::endl;
      exit(1);
    }
 
@@ -38,24 +38,24 @@
    unsigned char total_layers;
 
    /* Read file version */
-   ifs.read(read_bytes  , 1);
+   ifs.read((char*)read_bytes  , 1);
    major_version = read_bytes[0];
 
-   ifs.read(read_bytes  , 1);
+   ifs.read((char*)read_bytes  , 1);
    minor_version = read_bytes[0];
 
    std::cout << "File version " << major_version << "." << minor_version << std::endl;
 
    /* Read the type of model parameter and total layers the file stored */
-   ifs.read(read_bytes  , 1);
+   ifs.read((char*)read_bytes  , 1);
    param_type    = (Param_Type_e)read_bytes[0];
 
-   ifs.read(read_bytes  , 1);
+   ifs.read((char*)read_bytes  , 1);
    total_layers  = read_bytes[0];
 
    if( total_layers != layer_group.size() )
    {
-     std::error << "Model not matched" << std::endl;
+     std::cerr << "Model not matched" << std::endl;
      exit(1);
    }
 
@@ -69,14 +69,13 @@
    }
    else
    {
-     std::error << "Cannot get size of param type: " << param_type << std::endl;
+     std::cerr << "Cannot get size of param type: " << param_type << std::endl;
      exit(1);
    }
 
    /* Parse parameters for each layer */
    for(auto l : layer_group)
    {
-     int     temp;
      int     layer_weight_byte_size;
      int     layer_bias_byte_size;
      int     layer_input_size   = l->GetInputSize();
@@ -84,13 +83,12 @@
      int     no_weight_elements = layer_output_size * layer_input_size;
      int     no_bias_elements   = layer_output_size;
 
-     ifs.read(read_bytes, 4);
-     temp = ConvertFromBigEndian(read_bytes); // this variable is not used rightnow
+     ifs.read((char*)read_bytes, 4);// this variable is not used rightnow
 
-     ifs.read(read_bytes, 4);
+     ifs.read((char*)read_bytes, 4);
      layer_weight_byte_size = ConvertFromBigEndian(read_bytes);
 
-     ifs.read(read_bytes, 4);
+     ifs.read((char*)read_bytes, 4);
      layer_bias_byte_size = ConvertFromBigEndian(read_bytes);
 
      /* Sanity check */
@@ -99,7 +97,7 @@
         ( (layer_bias_byte_size/param_size)   != (no_bias_elements) )
         )
      {
-       std::error << "Unmatched weight/bias size" << std::endl;
+       std::cerr << "Unmatched weight/bias size" << std::endl;
        exit(1);
      }
 
@@ -129,7 +127,7 @@
          while(remaining > 0)
          {
            /* read an element from file and save to buffer */
-           ifs.read(read_bytes, 4);
+           ifs.read((char*)read_bytes, 4);
            mem_pool[idx] = (float)ConvertFromBigEndian(read_bytes);
 
            /* Just consumed an element */
@@ -156,7 +154,7 @@
          while(remaining > 0)
          {
            /* read an element from file and save to buffer */
-           ifs.read(read_bytes, 4);
+           ifs.read((char*)read_bytes, 4);
            mem_pool[idx] = (float)ConvertFromBigEndian(read_bytes);
 
            /* Just consumed an element */
@@ -187,8 +185,8 @@
          cudaFree(f_gpu_b);
        #else /* not USING_HALF_FLOAT */
          /* Convert to GPU memory */
-         layer_param_t l_w = l->GetWeight();
-         layer_param_t l_b = l->GetBias();
+         Layer::layer_param_t l_w = l->GetWeight();
+         Layer::layer_param_t l_b = l->GetBias();
 
          /* Read weight from file */
          idx        = 0;
@@ -197,7 +195,7 @@
          while(remaining > 0)
          {
            /* read an element from file and save to buffer */
-           ifs.read(read_bytes, 4);
+           ifs.read((char*)read_bytes, 4);
            mem_pool[idx] = (float)ConvertFromBigEndian(read_bytes);
 
            /* Just consumed an element */
@@ -225,7 +223,7 @@
          while(remaining > 0)
          {
            /* read an element from file and save to buffer */
-           ifs.read(read_bytes, 4);
+           ifs.read((char*)read_bytes, 4);
            mem_pool[idx] = (float)ConvertFromBigEndian(read_bytes);
 
            /* Just consumed an element */
@@ -257,7 +255,7 @@
    /* Finish reading */
    ifs.close();
  }
- void NetworkFileWriter::SaveModelToFile(std::string path_to_save, std::vector<std::shared_ptr<Layer>>& layer_group)
+ void NetworkFileWriter::SaveModelToFile(const std::string& path_to_save, std::vector<std::shared_ptr<Layer>>& layer_group)
  {
 #if USING_HALF_FLOAT
     // NOTE: saving model to file is not supported for half float
@@ -267,7 +265,7 @@
 
    if( !ofs.is_open() )
    {
-     std::error << "Cannot open file: " << path_to_save << std::endl;
+     std::cerr << "Cannot open file: " << path_to_save << std::endl;
      exit(1);
    }
 
@@ -278,7 +276,7 @@
    bytes_write[1] = FILE_MINOR_VERSION;
    bytes_write[2] = (unsigned char)PARAM_TYPE_FLOAT;
    bytes_write[3] = layer_group.size();
-   ofs.write(bytes_write, 4);
+   ofs.write((char *)bytes_write, 4);
 
    /* Handle param tytpe float / double */
    param_size = sizeof(float); // NOTE: Hardcoded for now
@@ -291,13 +289,13 @@
 
      /* Write byte size of weight and bias */
      ConvertToBigEndian(bytes_write, total_weight_element * param_size);
-     ofs.write(bytes_write, 4);
+     ofs.write((char *)bytes_write, 4);
      ConvertToBigEndian(bytes_write, total_bias_element   * param_size);
-     ofs.write(bytes_write, 4);
+     ofs.write((char *)bytes_write, 4);
 
      /* Process weight and bias */
-     layer_param_t l_w = l->GetWeight();
-     layer_param_t l_b = l->GetBias();
+     Layer::layer_param_t l_w = l->GetWeight();
+     Layer::layer_param_t l_b = l->GetBias();
      int offset;
      int elements_to_copy;
      int remaining_elements;
@@ -307,22 +305,22 @@
      // Read weights from GPU memory into buffer and write to file
      offset = 0;
      remaining_elements = total_weight_element;
-     while(remaining > 0)
+     while(remaining_elements > 0)
      {
        /* Copy elements from GPU memory to buffer */
        elements_to_copy = (remaining_elements > mempool_total_elements)? mempool_total_elements : remaining_elements;
-       cudaMemcpy(mempool.get(), l_w + offset, elements_to_copy * param_size, cudaMemcpyDeviceToHost);
+       cudaMemcpy(mem_pool.get(), l_w + offset, elements_to_copy * param_size, cudaMemcpyDeviceToHost);
 
        /* Convert from little endian to big endian */
        for(int element_idx = 0; element_idx < elements_to_copy; element_idx++)
        {
          float temp;
-         ConvertToBigEndian((unsigned char * )&temp, mempool[element_idx]);
-         mempool[element_idx] = temp;
+         ConvertToBigEndian((unsigned char * )&temp, mem_pool[element_idx]);
+         mem_pool[element_idx] = temp;
        }
 
        /* Write copied elements to file */
-       ofs.write(mempool.get(), elements_to_copy * param_size);
+       ofs.write((char *)mem_pool.get(), elements_to_copy * param_size);
 
        /* Just consumed some elements */
        remaining_elements -= elements_to_copy;
@@ -332,22 +330,22 @@
      // Read bias from GPU memory into buffer and write to file
      offset = 0;
      remaining_elements = total_bias_element;
-     while(remaining > 0)
+     while(remaining_elements > 0)
      {
        /* Copy elements from GPU memory to buffer */
        elements_to_copy = (remaining_elements > mempool_total_elements)? mempool_total_elements : remaining_elements;
-       cudaMemcpy(mempool.get(), l_b + offset, elements_to_copy * param_size, cudaMemcpyDeviceToHost);
+       cudaMemcpy(mem_pool.get(), l_b + offset, elements_to_copy * param_size, cudaMemcpyDeviceToHost);
 
        /* Convert from little endian to big endian */
        for(int element_idx = 0; element_idx < elements_to_copy; element_idx++)
        {
          float temp;
-         ConvertToBigEndian((unsigned char * )&temp, mempool[element_idx]);
-         mempool[element_idx] = temp;
+         ConvertToBigEndian((unsigned char * )&temp, mem_pool[element_idx]);
+         mem_pool[element_idx] = temp;
        }
 
        /* Write copied elements to file */
-       ofs.write(mempool.get(), elements_to_copy * param_size);
+       ofs.write((char *)mem_pool.get(), elements_to_copy * param_size);
 
        /* Just consumed some elements */
        remaining_elements -= elements_to_copy;

@@ -1,7 +1,7 @@
 #ifndef __LAYER_H
 #define __LAYER_H
 
-#define USING_HALF_FLOAT        1
+#define USING_HALF_FLOAT        0
 
 #if USING_HALF_FLOAT
 #include "cuda_fp16.h"

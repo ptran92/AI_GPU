@@ -2,6 +2,7 @@
 #define _NETWORK_PARAM_FILE_WRITER_H
 /*********************************************************/
 #include <memory>
+#include <vector>
 #include "../layers/layer.h"
 /*********************************************************/
 class NetworkFileWriter

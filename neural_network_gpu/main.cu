@@ -144,7 +144,7 @@ int main(int argc, char const *argv[])
   /* Save to file */
   NetworkFileWriter writer;
   std::string save_path = MODEL_PATH_FILE;
-  writer.SaveModelToFile(const std::string& path_to_save, group_layers);
+  writer.SaveModelToFile(save_path, group_layers);
   #endif /* TRAIN_MODE */
 
   #if INFERENCE
