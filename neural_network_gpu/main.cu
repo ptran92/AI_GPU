@@ -17,8 +17,8 @@
 /*************************************************************
  *    MACROS & DEFINITIONS
  *************************************************************/
-#define TRAIN_MODE      1
-#define INFERENCE_MODE  0
+#define TRAIN_MODE      0
+#define INFERENCE_MODE  1
 
 /*************************************************************
  *    CONSTANTS
@@ -140,28 +140,30 @@ int main(int argc, char const *argv[])
   std::chrono::system_clock::time_point end   = std::chrono::system_clock::now();
 
   std::chrono::milliseconds elapsed_millisecs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  /* Print the elapsed time */
+  std::cout << "Time elapsed: " << (double)(elapsed_millisecs.count())/1000/60 << " minutes" << std::endl;
 
   /* Save to file */
   NetworkFileWriter writer;
   std::string save_path = MODEL_PATH_FILE;
+  std::cout << "Save file to " << save_path << std::endl;
   writer.SaveModelToFile(save_path, group_layers);
   #endif /* TRAIN_MODE */
 
-  #if INFERENCE
+  #if INFERENCE_MODE
   /*****************************************************
    *  Load model from file
    *****************************************************/
   NetworkFileWriter writer;
   std::string load_path = MODEL_PATH_FILE;
+  std::cout << "Read file from " << load_path << std::endl;
   writer.UpdateModelFromFile(load_path, group_layers);
-  #endif
+  #endif /* INFERENCE_MODE */
   /*****************************************************
    *  Validate
    *****************************************************/
   Validate_Model(net, test_set);
 
-  // Print the elapsed time
-  std::cout << "Time elapsed: " << (double)(elapsed_millisecs.count())/1000/60 << " minutes" << std::endl;
   /*****************************************************
    *  End of application
    *****************************************************/
