@@ -86,10 +86,10 @@
      ifs.read((char*)read_bytes, 4);// this variable is not used rightnow
 
      ifs.read((char*)read_bytes, 4);
-     layer_weight_byte_size = ConvertFromBigEndian(read_bytes);
+     ConvertFromBigEndian(read_bytes, (unsigned char *)&layer_weight_byte_size);
 
      ifs.read((char*)read_bytes, 4);
-     layer_bias_byte_size = ConvertFromBigEndian(read_bytes);
+     ConvertFromBigEndian(read_bytes, (unsigned char *)&layer_bias_byte_size);
 
      /* Sanity check */
      if(
@@ -98,6 +98,11 @@
         )
      {
        std::cerr << "Unmatched weight/bias size" << std::endl;
+       std::cerr << "+ [FILE] Weight size: " << layer_weight_byte_size/param_size << std::endl;
+       std::cerr << "+ [Required] Weight size: " << no_weight_elements << std::endl;
+       std::cerr << "+ [FILE] Bias size: " << layer_bias_byte_size/param_size << std::endl;
+       std::cerr << "+ [Required] Bias size: " << no_bias_elements << std::endl;
+
        exit(1);
      }
 
@@ -128,7 +133,7 @@
          {
            /* read an element from file and save to buffer */
            ifs.read((char*)read_bytes, 4);
-           mem_pool[idx] = (float)ConvertFromBigEndian(read_bytes);
+           ConvertFromBigEndian(read_bytes, (unsigned char *)&mem_pool[idx]);
 
            /* Just consumed an element */
            remaining--;
@@ -155,7 +160,7 @@
          {
            /* read an element from file and save to buffer */
            ifs.read((char*)read_bytes, 4);
-           mem_pool[idx] = (float)ConvertFromBigEndian(read_bytes);
+           ConvertFromBigEndian(read_bytes, (unsigned char *)&mem_pool[idx]);
 
            /* Just consumed an element */
            remaining--;
@@ -196,7 +201,7 @@
          {
            /* read an element from file and save to buffer */
            ifs.read((char*)read_bytes, 4);
-           mem_pool[idx] = (float)ConvertFromBigEndian(read_bytes);
+           ConvertFromBigEndian(read_bytes, (unsigned char *)&mem_pool[idx]);
 
            /* Just consumed an element */
            remaining--;
@@ -215,7 +220,6 @@
            }
          }
 
-
          /* Read bias from file */
          offset     = 0;
          idx        = 0;
@@ -224,7 +228,7 @@
          {
            /* read an element from file and save to buffer */
            ifs.read((char*)read_bytes, 4);
-           mem_pool[idx] = (float)ConvertFromBigEndian(read_bytes);
+           ConvertFromBigEndian(read_bytes, (unsigned char *)&mem_pool[idx]);
 
            /* Just consumed an element */
            remaining--;
@@ -286,11 +290,19 @@
    {
      int total_weight_element = l->GetInputSize() * l->GetOutputSize();
      int total_bias_element   = l->GetOutputSize();
+     int temp;
+
+     /* Write empty word to file, not used right now */
+     temp = 0;
+     ofs.write((char *)&temp, 4);
 
      /* Write byte size of weight and bias */
-     ConvertToBigEndian(bytes_write, total_weight_element * param_size);
+     temp = total_weight_element * param_size;
+     ConvertToBigEndian(bytes_write, (unsigned char *)&temp);
      ofs.write((char *)bytes_write, 4);
-     ConvertToBigEndian(bytes_write, total_bias_element   * param_size);
+
+     temp = total_bias_element * param_size;
+     ConvertToBigEndian(bytes_write, (unsigned char *)&temp);
      ofs.write((char *)bytes_write, 4);
 
      /* Process weight and bias */
@@ -315,12 +327,13 @@
        for(int element_idx = 0; element_idx < elements_to_copy; element_idx++)
        {
          float temp;
-         ConvertToBigEndian((unsigned char * )&temp, mem_pool[element_idx]);
+         ConvertToBigEndian((unsigned char * )&temp, (unsigned char *)&mem_pool[element_idx]);
          mem_pool[element_idx] = temp;
        }
 
        /* Write copied elements to file */
        ofs.write((char *)mem_pool.get(), elements_to_copy * param_size);
+       ofs.flush();
 
        /* Just consumed some elements */
        remaining_elements -= elements_to_copy;
@@ -330,6 +343,7 @@
      // Read bias from GPU memory into buffer and write to file
      offset = 0;
      remaining_elements = total_bias_element;
+
      while(remaining_elements > 0)
      {
        /* Copy elements from GPU memory to buffer */
@@ -340,12 +354,13 @@
        for(int element_idx = 0; element_idx < elements_to_copy; element_idx++)
        {
          float temp;
-         ConvertToBigEndian((unsigned char * )&temp, mem_pool[element_idx]);
+         ConvertToBigEndian((unsigned char * )&temp, (unsigned char *)&mem_pool[element_idx]);
          mem_pool[element_idx] = temp;
        }
 
        /* Write copied elements to file */
        ofs.write((char *)mem_pool.get(), elements_to_copy * param_size);
+       ofs.flush();
 
        /* Just consumed some elements */
        remaining_elements -= elements_to_copy;
@@ -360,23 +375,20 @@
  /*************************************************************
   *   PRIVATE FUNCTIONS
   *************************************************************/
-int NetworkFileWriter::ConvertFromBigEndian(unsigned char *buf)
+void NetworkFileWriter::ConvertFromBigEndian(const unsigned char *buf, unsigned char *output)
 {
-  int temp = 0;
+  output [3] = buf[0];
+  output [2] = buf[1];
+  output [1] = buf[2];
+  output [0] = buf[3];
 
-  temp |= ((int)buf[0]&0xFF) << 24;
-  temp |= ((int)buf[1]&0xFF) << 16;
-  temp |= ((int)buf[2]&0xFF) << 8;
-  temp |= ((int)buf[3]&0xFF);
-
-  return temp;
 }
-void NetworkFileWriter::ConvertToBigEndian(unsigned char *buf, const int val)
+void NetworkFileWriter::ConvertToBigEndian(unsigned char *buf, const unsigned char * in_var)
 {
-  buf[0] = (unsigned char)((val >> 24) & 0xFF);
-  buf[1] = (unsigned char)((val >> 16) & 0xFF);
-  buf[2] = (unsigned char)((val >> 8) & 0xFF);
-  buf[3] = (unsigned char)(val & 0xFF);
+  buf[0] = in_var[3];
+  buf[1] = in_var[2];
+  buf[2] = in_var[1];
+  buf[3] = in_var[0];
 }
  /*************************************************************
   *   END OF FILE

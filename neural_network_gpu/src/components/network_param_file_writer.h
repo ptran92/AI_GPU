@@ -12,8 +12,8 @@ public:
   void SaveModelToFile(const std::string& path_to_save, std::vector<std::shared_ptr<Layer>>& layer_group);
 
 private:
-  int  ConvertFromBigEndian(unsigned char *buf);
-  void ConvertToBigEndian(unsigned char *buf, const int val);
+  void ConvertFromBigEndian(const unsigned char *buf, unsigned char *output);
+  void ConvertToBigEndian(unsigned char *buf, const unsigned char * in_var);
 
 public:
   enum
