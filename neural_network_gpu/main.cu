@@ -4,6 +4,7 @@
 *
 *************************************************************/
 #include <iostream>
+#include <string>
 #include <vector>
 #include <memory>
 #include <chrono>
@@ -17,8 +18,6 @@
 /*************************************************************
  *    MACROS & DEFINITIONS
  *************************************************************/
-#define TRAIN_MODE      0
-#define INFERENCE_MODE  1
 
 /*************************************************************
  *    CONSTANTS
@@ -105,6 +104,13 @@ void Validate_Model(Network& net, Mnist_Parser& test_set)
  *************************************************************/
 int main(int argc, char const *argv[])
 {
+  if(argc != 2)
+  {
+    std::cerr << "Usage: " << argv[0] << " <mode>\n\tWhere mode is \"train/infer\"" << std::endl;
+    exit(1);
+  }
+  std::string mode = argv[1];
+
   /*****************************************************
    *  Read MNIST data
    *****************************************************/
@@ -130,35 +136,41 @@ int main(int argc, char const *argv[])
    *****************************************************/
   Network net(group_layers, input_size, output_size, LEARNING_RATE, BATCH_SIZE, EPOCH_TIME);
 
+  if( mode.compare("train") == 0 )
+  {
+    /*****************************************************
+     *  Train
+     *****************************************************/
+    std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+    Train_Model(net, training_set, test_set);
+    std::chrono::system_clock::time_point end   = std::chrono::system_clock::now();
 
-  #if TRAIN_MODE
-  /*****************************************************
-   *  Train
-   *****************************************************/
-  std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
-  Train_Model(net, training_set, test_set);
-  std::chrono::system_clock::time_point end   = std::chrono::system_clock::now();
+    std::chrono::milliseconds elapsed_millisecs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    /* Print the elapsed time */
+    std::cout << "Time elapsed: " << (double)(elapsed_millisecs.count())/1000/60 << " minutes" << std::endl;
 
-  std::chrono::milliseconds elapsed_millisecs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  /* Print the elapsed time */
-  std::cout << "Time elapsed: " << (double)(elapsed_millisecs.count())/1000/60 << " minutes" << std::endl;
+    /* Save to file */
+    NetworkFileWriter writer;
+    std::string save_path = MODEL_PATH_FILE;
+    std::cout << "Save file to " << save_path << std::endl;
+    writer.SaveModelToFile(save_path, group_layers);
+  }
+  else if( mode.compare("infer") == 0 )
+  {
+    /*****************************************************
+     *  Load model from file
+     *****************************************************/
+    NetworkFileWriter writer;
+    std::string load_path = MODEL_PATH_FILE;
+    std::cout << "Read file from " << load_path << std::endl;
+    writer.UpdateModelFromFile(load_path, group_layers);
+  }
+  else
+  {
+    std::cerr << "mode is either \"train\" or \"infer\"" << std::endl;
+    exit(1);
+  }
 
-  /* Save to file */
-  NetworkFileWriter writer;
-  std::string save_path = MODEL_PATH_FILE;
-  std::cout << "Save file to " << save_path << std::endl;
-  writer.SaveModelToFile(save_path, group_layers);
-  #endif /* TRAIN_MODE */
-
-  #if INFERENCE_MODE
-  /*****************************************************
-   *  Load model from file
-   *****************************************************/
-  NetworkFileWriter writer;
-  std::string load_path = MODEL_PATH_FILE;
-  std::cout << "Read file from " << load_path << std::endl;
-  writer.UpdateModelFromFile(load_path, group_layers);
-  #endif /* INFERENCE_MODE */
   /*****************************************************
    *  Validate
    *****************************************************/
