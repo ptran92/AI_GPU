@@ -279,7 +279,7 @@ __global__ void h_Softmax_Gpu(const half * z, half * output, const int n)
    }
    else if( __heq(output[tid], one)  )
    {
-     // if equal to one, substract an epsilon 
+     // if equal to one, substract an epsilon
      output[tid] = __hsub(output[tid], esp);
    }
 
@@ -389,7 +389,7 @@ __global__ void h_CrossEntropyLoss_Derivative_Gpu(const half * neural_out, const
 
    half a         = hdiv(expect_out[tid], y);
    half b         = hdiv( __hfma(minus_one, expect_out[tid], one), __hfma(minus_one, y, one) );
-   
+
    loss_dvt[tid]  = __hfma(minus_one, a, b);
 
    /* if result is inf, replace it with maximum value of float 16 */
@@ -407,6 +407,45 @@ __global__ void h_CrossEntropyLoss_Derivative_Gpu(const half * neural_out, const
 
   }
 }
+
+
+__global__ void h_Self_MultiplyMatrix(const half* x, const half* y, half* z, int row_x, int col_x, int col_y)
+{
+  int tid   = blockIdx.x * blockDim.x + threadIdx.x;
+  int n2    = col_y/2;
+
+  if(tid < n2)
+  {
+      half2 *output = (half2 *)z;
+      half2 sum     = __float2half2_rn(0.0f);
+      int count     = col_x;
+      int l_col     = count * 2 * tid;
+      int r_col     = count * (2 * tid + 1);
+
+      for(int i = 0; i < count; i++)
+      {
+        sum = __hfma2(__half2half2(x[i]), __halves2half2(y[i + l_col], y[i + r_col]), sum);
+      }
+
+      output[tid] = sum;
+  }
+}
+
+__global__ void h_AddVector(half * x, const half * y, int n)
+{
+  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  int n2 = n/2;
+
+  if(tid < n2)
+  {
+    half2 *a = (half2 *)x;
+    half2 *b = (half2 *)y;
+
+    a[tid] = __hadd2(a[tid], b[tid]);
+
+  }
+}
+
 
 #endif
 
@@ -468,7 +507,7 @@ void Helper::cuda_array_zero_allocate(void **array, Layer::param_type_e type, in
 void Helper::cuda_array_allocate(void **array, Layer::param_type_e type, int size)
 {
   if( type == Layer::FLOAT_TYPE )
-  {
+  {;
     cudaMalloc(array, size * sizeof(float));
   }
   else if( type == Layer::HALF_FLOAT_TYPE )
@@ -485,35 +524,41 @@ void Helper::cuda_array_allocate(void **array, Layer::param_type_e type, int siz
                               int total_inputs, int total_outputs)
  {
  #if USING_HALF_FLOAT
-    half alpha = approx_float_to_half(1.0);
-    half beta  = approx_float_to_half(0.0);
+    // half alpha = approx_float_to_half(1.0);
+    // half beta  = approx_float_to_half(0.0);
+    //
+    // int m = 1;              // number of rows of matrix op(A) and C
+    // int n = total_outputs;  // number of columns of matrix op (B) and C
+    // int k = total_inputs;   // number of columns and rows of matrix op(A) and op(B)
+    //
+    // int lda = 1;            // leading dimension of matrix A
+    // int ldb = total_inputs; // leading dimension of matrix B
+    // int ldc = 1;            // leading dimension of matrix C
+    //
+    // half *mat_a = input;    // Matrix A
+    // half *mat_b = w;        // Matrix B
+    // half *mat_c = z;        // Matrix C
+    //
+    // cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
+    // cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
+    //
+    // // calculate z = x*W
+    // cublasHgemm(Device::Device_Get_Handle(),op_A,op_B,\
+    //             m , n , k,\
+    //             &alpha,\
+    //             mat_a , lda,\
+    //             mat_b , ldb,\
+    //             &beta ,\
+    //             mat_c , ldc);
+    //
+    // // add bias z = bias + z
+    // h_add_vectors<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(b, z, total_outputs);
 
-    int m = 1;              // number of rows of matrix op(A) and C
-    int n = total_outputs;  // number of columns of matrix op (B) and C
-    int k = total_inputs;   // number of columns and rows of matrix op(A) and op(B)
+    /* Z = X * W */
+    h_Self_MultiplyMatrix<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(input, w, z, 1, total_inputs, total_outputs);
 
-    int lda = 1;            // leading dimension of matrix A
-    int ldb = total_inputs; // leading dimension of matrix B
-    int ldc = 1;            // leading dimension of matrix C
-
-    half *mat_a = input;    // Matrix A
-    half *mat_b = w;        // Matrix B
-    half *mat_c = z;        // Matrix C
-
-    cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
-    cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
-
-    // calculate z = x*W
-    cublasHgemm(Device::Device_Get_Handle(),op_A,op_B,\
-                m , n , k,\
-                &alpha,\
-                mat_a , lda,\
-                mat_b , ldb,\
-                &beta ,\
-                mat_c , ldc);
-
-    // add bias z = bias + z
-    h_add_vectors<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(b, z, total_outputs);
+    /* Z = Z + B */
+    h_AddVector<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(z, b, total_outputs);
 
  #else
     float alpha = 1.0;
