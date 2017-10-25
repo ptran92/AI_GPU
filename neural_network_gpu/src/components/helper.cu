@@ -226,64 +226,59 @@ __global__ void h_Softmax_Dev_Gpu(const half * output, half * act_dvt, const int
 
 __global__ void h_Softmax_Gpu(const half * z, half * output, const int n)
 {
- half sum = __float2half(0.0);
  int  tid = blockIdx.x * blockDim.x + threadIdx.x;
- half max = z[0];
-
- /* find the max in input buffer */
  if(tid < n)
  {
-   for(int i = 1; i < n; i++)
-   {
-     if( __hgt(z[i], max) )
-     {
-       max = z[i];
-     }
-   }
+    half thread_z = z[tid];
+    half sum      = __float2half(0.0f);
+    half max      = z[0];
+    half result;
+
+    /* find the max in input buffer */
+    for(int i = 1; i < n; i++)
+    {
+      if( __hgt(z[i], max) )
+      {
+        max = z[i];
+      }
+    }
+    __syncthreads();
+
+
+    // output[tid] = exp( z[tid] - max );
+    output[tid] = hexp( __hsub(thread_z, max) );
+    __syncthreads();
+
+
+    // sum += output[i];
+    for(int i = 0; i < n; i++)
+    {
+      sum = __hadd( sum , output[i] );
+    }
+    __syncthreads();
+
+
+    // output[tid] /= sum;
+    result = hdiv(output[tid], sum);
+
+    // trick! add or substract an epsilon to prevent output to zero or one
+    half zero = __float2half(0.0f);
+    half one  = __float2half(1.0f);
+    half esp  = __float2half(0.001f);
+    if( __heq(result, zero) )
+    {
+      // if equal to zero, add an epsilon
+      result = __hadd(result, esp);
+    }
+    else if( __heq(result, one)  )
+    {
+      // if equal to one, substract an epsilon
+      result = __hsub(result, esp);
+    }
+
+    output[tid] = result;
  }
 
- __syncthreads();
-
- if(tid < n)
- {
-   // output[tid] = exp( z[tid] - max );
-   output[tid] = hexp( __hsub(z[tid], max) );
- }
-
- __syncthreads();
-
- if(tid < n)
- {
-   for(int i = 0; i < n; i++)
-   {
-     // sum += output[i];
-     sum = __hadd( sum , output[i] );
-   }
- }
-
- __syncthreads();
-
- if(tid < n)
- {
-   // output[tid] /= sum;
-   output[tid] = hdiv(output[tid], sum);
-
-   // trick! add or substract an epsilon to prevent output to zero or one
-   half zero = __float2half(0.0);
-   half one  = __float2half(1.0);
-   half esp  = __float2half(0.001);
-   if( __heq(output[tid], zero) )
-   {
-     // if equal to zero, add an epsilon
-     output[tid] = __hadd(output[tid], esp);
-   }
-   else if( __heq(output[tid], one)  )
-   {
-     // if equal to one, substract an epsilon
-     output[tid] = __hsub(output[tid], esp);
-   }
-
- }
 }
 
 __global__ void h_Update_Param_Gpu(half * x, half * dx, float ALPHA, const int n)
@@ -347,17 +342,18 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
      + If z <= 0:
         sigmoid(z) = e^z / (1 + e^z)
    */
+   half z         = z[tid];
    half one       = __float2half(1.0);
    half minus_one = __float2half(-1.0);
    half zero      = __float2half(0.0);
 
-   if( __hgt(z[tid], zero) )
+   if( __hgt(z, zero) )
    {
      /*
        if z is greater than 0
        use the formula sigmoid(x) = 1 / (1 + e^-x)
      */
-     half temp      = __hfma(minus_one, z[tid], zero);
+     half temp      = __hfma(minus_one, z, zero);
      half divisor   = __hfma(one, hexp(temp), one);
      output[tid]    = hdiv(one, divisor);
 
@@ -368,7 +364,7 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
        if z is equal or less than 0
        use the formula sigmoid(x) = e^x / (1 + e^x)
      */
-     half exponent  = hexp(z[tid]);
+     half exponent  = hexp(z);
      half divisor   = __hfma(one, exponent, one);
      output[tid]    = hdiv(exponent, divisor);
    }
@@ -507,7 +503,7 @@ void Helper::cuda_array_zero_allocate(void **array, Layer::param_type_e type, in
 void Helper::cuda_array_allocate(void **array, Layer::param_type_e type, int size)
 {
   if( type == Layer::FLOAT_TYPE )
-  {;
+  {
     cudaMalloc(array, size * sizeof(float));
   }
   else if( type == Layer::HALF_FLOAT_TYPE )
@@ -524,36 +520,6 @@ void Helper::cuda_array_allocate(void **array, Layer::param_type_e type, int siz
                               int total_inputs, int total_outputs)
  {
  #if USING_HALF_FLOAT
-    // half alpha = approx_float_to_half(1.0);
-    // half beta  = approx_float_to_half(0.0);
-    //
-    // int m = 1;              // number of rows of matrix op(A) and C
-    // int n = total_outputs;  // number of columns of matrix op (B) and C
-    // int k = total_inputs;   // number of columns and rows of matrix op(A) and op(B)
-    //
-    // int lda = 1;            // leading dimension of matrix A
-    // int ldb = total_inputs; // leading dimension of matrix B
-    // int ldc = 1;            // leading dimension of matrix C
-    //
-    // half *mat_a = input;    // Matrix A
-    // half *mat_b = w;        // Matrix B
-    // half *mat_c = z;        // Matrix C
-    //
-    // cublasOperation_t op_A = CUBLAS_OP_N; // op(A) = A
-    // cublasOperation_t op_B = CUBLAS_OP_N; // op(B) = B
-    //
-    // // calculate z = x*W
-    // cublasHgemm(Device::Device_Get_Handle(),op_A,op_B,\
-    //             m , n , k,\
-    //             &alpha,\
-    //             mat_a , lda,\
-    //             mat_b , ldb,\
-    //             &beta ,\
-    //             mat_c , ldc);
-    //
-    // // add bias z = bias + z
-    // h_add_vectors<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(b, z, total_outputs);
-
     /* Z = X * W */
     h_Self_MultiplyMatrix<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(input, w, z, 1, total_inputs, total_outputs);
 
@@ -717,7 +683,9 @@ void Helper::accum_b_grad(Layer::layer_param_t err_dvt, Layer::layer_param_t b_g
   half * x = err_dvt;
   half * y = b_grad;
 
-  h_add_vectors<<<CUDA_BLOCKS(n), Device::total_threads>>>(x, y, n);
+  // h_add_vectors<<<CUDA_BLOCKS(n), Device::total_threads>>>(x, y, n);
+  h_AddVector<<<CUDA_BLOCKS(n), Device::total_threads>>>(y, x, n);
+
 #else
   float alpha = 1.0;
   float * x   = err_dvt;
