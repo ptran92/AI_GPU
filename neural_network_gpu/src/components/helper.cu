@@ -342,18 +342,18 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
      + If z <= 0:
         sigmoid(z) = e^z / (1 + e^z)
    */
-   half z         = z[tid];
+   half thread_z  = z[tid];
    half one       = __float2half(1.0);
    half minus_one = __float2half(-1.0);
    half zero      = __float2half(0.0);
 
-   if( __hgt(z, zero) )
+   if( __hgt(thread_z, zero) )
    {
      /*
        if z is greater than 0
        use the formula sigmoid(x) = 1 / (1 + e^-x)
      */
-     half temp      = __hfma(minus_one, z, zero);
+     half temp      = __hfma(minus_one, thread_z, zero);
      half divisor   = __hfma(one, hexp(temp), one);
      output[tid]    = hdiv(one, divisor);
 
@@ -364,7 +364,7 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
        if z is equal or less than 0
        use the formula sigmoid(x) = e^x / (1 + e^x)
      */
-     half exponent  = hexp(z);
+     half exponent  = hexp(thread_z);
      half divisor   = __hfma(one, exponent, one);
      output[tid]    = hdiv(exponent, divisor);
    }
