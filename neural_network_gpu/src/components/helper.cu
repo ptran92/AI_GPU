@@ -154,20 +154,26 @@ __global__ void fill_zero_gpu(float * array, int n)
 __global__ void cvt_float2half_gpu(const float * src, half * dst, const int n)
 {
  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+ int n2 = n / 2;
 
- if(tid < n)
+ if(tid < n2)
  {
-   dst[tid] = __float2half(src[tid]);
+   half2 *output = (half2 *)dst;
+   float2 *input = (float2 *)src;
+   output[tid]   = __float22half2_rn(input[tid]);    
  }
 }
 
 __global__ void cvt_half2float_gpu(const half * src, float * dst, const int n)
 {
  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+ int n2  = n / 2;
 
- if(tid < n)
+ if(tid < n2)
  {
-   dst[tid] = __half2float(src[tid]);
+   float2 *output = (float2 *)dst;
+   half2 *input   = (half2 *)src;
+   output[tid]    = __half22float2(input[tid]);
  }
 }
 
@@ -261,6 +267,7 @@ __global__ void h_Softmax_Gpu(const half * z, half * output, const int n)
     // output[tid] /= sum;
     result = hdiv(output[tid], sum);
 
+
     // trick! add or substract an epsilon to prevent output to zero or one
     half zero = __float2half(0.0f);
     half one  = __float2half(1.0f);
@@ -344,7 +351,6 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
    */
    half thread_z  = z[tid];
    half one       = __float2half(1.0);
-   half minus_one = __float2half(-1.0);
    half zero      = __float2half(0.0);
 
    if( __hgt(thread_z, zero) )
@@ -353,8 +359,7 @@ __global__ void h_Sigmoid_Gpu(const half * z, half * output, const int n)
        if z is greater than 0
        use the formula sigmoid(x) = 1 / (1 + e^-x)
      */
-     half temp      = __hfma(minus_one, thread_z, zero);
-     half divisor   = __hfma(one, hexp(temp), one);
+     half divisor   = __hfma(one, hexp( __hneg(thread_z) ), one);
      output[tid]    = hdiv(one, divisor);
 
    }
@@ -553,7 +558,6 @@ void Helper::cuda_array_allocate(void **array, Layer::param_type_e type, int siz
                  mat_b , ldb,\
                  &beta ,\
                  mat_c , ldc);
-
     // add bias z = bias + z
     cublasSaxpy(Device::Device_Get_Handle(), n, &alpha, b, 1, z, 1);
 
