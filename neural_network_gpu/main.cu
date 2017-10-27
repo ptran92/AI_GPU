@@ -23,13 +23,13 @@
  *    CONSTANTS
  *************************************************************/
 /* Data path */
-#define TRAINING_DATA_PATH        "data/train-images.idx3-ubyte"
-#define TRAINING_LABEL_PATH       "data/train-labels.idx1-ubyte"
-#define VALIDATE_DATA_PATH        "data/t10k-images.idx3-ubyte"
-#define VALIDATE_LABEL_PATH       "data/t10k-labels.idx1-ubyte"
+#define TRAINING_DATA_PATH        "../data/train-images.idx3-ubyte"
+#define TRAINING_LABEL_PATH       "../data/train-labels.idx1-ubyte"
+#define VALIDATE_DATA_PATH        "../data/t10k-images.idx3-ubyte"
+#define VALIDATE_LABEL_PATH       "../data/t10k-labels.idx1-ubyte"
 
 /* Model path */
-#define MODEL_PATH_FILE           "model/trained_model.txt"
+#define MODEL_PATH_FILE           "../model/trained_model.txt"
 
 /* network parameter */
 #define BATCH_SIZE                        20
