@@ -160,7 +160,7 @@ __global__ void cvt_float2half_gpu(const float * src, half * dst, const int n)
  {
    half2 *output = (half2 *)dst;
    float2 *input = (float2 *)src;
-   output[tid]   = __float22half2_rn(input[tid]);    
+   output[tid]   = __float22half2_rn(input[tid]);
  }
 }
 
@@ -410,26 +410,58 @@ __global__ void h_CrossEntropyLoss_Derivative_Gpu(const half * neural_out, const
 }
 
 
-__global__ void h_Self_MultiplyMatrix(const half* x, const half* y, half* z, int row_x, int col_x, int col_y)
+
+#define BLOCK_SIZE   32
+__global__ void h_Block_MatrixMultiplication(const half* x, const half* y, half* z, int row_x, int col_x, int col_y)
 {
-  int tid   = blockIdx.x * blockDim.x + threadIdx.x;
-  int n2    = col_y/2;
+  int row = blockIdx.x * blockDim.x + threadIdx.x;
+  int col = blockIdx.y * blockDim.y + threadIdx.y;
+  int b_row = threadIdx.x;
+  int b_col = threadIdx.y;
 
-  if(tid < n2)
+  half sum  = __float2half(0.0f);
+
+  __shared__ half s_a[BLOCK_SIZE * BLOCK_SIZE];
+  __shared__ half s_b[BLOCK_SIZE * BLOCK_SIZE];
+
+  for(int stride = 0; stride < ( (col_x + BLOCK_SIZE - 1) / BLOCK_SIZE ); stride++)
   {
-      half2 *output = (half2 *)z;
-      half2 sum     = __float2half2_rn(0.0f);
-      int count     = col_x;
-      int l_col     = count * 2 * tid;
-      int r_col     = count * (2 * tid + 1);
+    if( (stride * BLOCK_SIZE + b_col) < col_x  &&
+        (row < row_x) )
+    {
+      s_a[b_row + BLOCK_SIZE * b_col] = x[row + (stride * BLOCK_SIZE + b_col) * row_x];
+    }
+    else
+    {
+      s_a[b_row + BLOCK_SIZE * b_col] = __float2half(0.0f);
+    }
 
-      for(int i = 0; i < count; i++)
-      {
-        sum = __hfma2(__half2half2(x[i]), __halves2half2(y[i + l_col], y[i + r_col]), sum);
-      }
+    if( ( stride * BLOCK_SIZE + b_row ) < col_x &&
+        (col < col_y) )
+    {
+      s_b[b_row + BLOCK_SIZE * b_col] = y[col * col_x + (stride * BLOCK_SIZE + b_row)];
 
-      output[tid] = sum;
+    }
+    else
+    {
+      s_b[b_row + BLOCK_SIZE * b_col] = __float2half(0.0f);
+    }
+
+    __syncthreads();
+
+    for(int i = 0; i < BLOCK_SIZE; i++)
+    {
+      sum = __hfma( s_a[i * BLOCK_SIZE + b_row] , s_b[i + b_col * BLOCK_SIZE], sum);
+    }
+    __syncthreads();
+
   }
+
+  if( row < row_x && col < col_y )
+  {
+    z[row + col * row_x] = sum;
+  }
+
 }
 
 __global__ void h_AddVector(half * x, const half * y, int n)
@@ -526,7 +558,9 @@ void Helper::cuda_array_allocate(void **array, Layer::param_type_e type, int siz
  {
  #if USING_HALF_FLOAT
     /* Z = X * W */
-    h_Self_MultiplyMatrix<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(input, w, z, 1, total_inputs, total_outputs);
+    dim3 dimGrid(1 , (total_outputs + BLOCK_SIZE - 1) / BLOCK_SIZE);
+    dim3 dimBlock(BLOCK_SIZE , BLOCK_SIZE);
+    h_Block_MatrixMultiplication<<<dimGrid, dimBlock>>>(input, w, z, 1, total_inputs, total_outputs);
 
     /* Z = Z + B */
     h_AddVector<<<CUDA_BLOCKS(total_outputs), Device::total_threads>>>(z, b, total_outputs);
